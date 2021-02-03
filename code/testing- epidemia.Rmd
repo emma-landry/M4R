@@ -1,0 +1,28 @@
+---
+title: "M4R-Testing Epidemia"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+data("EuropeCovid")
+args <- EuropeCovid
+args$algorithm <- "sampling"
+args$group_subset <- c("France")
+args$sampling_args <- list(iter=1e3,seed=12345)
+
+# model for reproduction number
+args$rt <- epirt(
+  formula = R(country, date) ~ schools_universities + self_isolating_if_ill +
+    public_events + lockdown + social_distancing_encouraged,
+  prior = shifted_gamma(shape = 1/6, scale = 1, shift = log(1.05)/6)
+)
+
+fit <- do.call(epim, args)
+
+plot_rt(fit, group = "France", plotly=TRUE)
+```
+
