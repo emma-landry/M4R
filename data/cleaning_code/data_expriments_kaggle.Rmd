@@ -1,0 +1,141 @@
+---
+title: "data_experiments"
+author: "Emma Landry"
+date: "2/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(here)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(urbnmapr)
+library(ggplot2)
+```
+
+```{r}
+here::here()
+```
+
+```{r}
+data_pres <- read_csv(here("data","kaggle", "president_county_candidate.csv"))
+```
+
+```{r}
+total_votes_country <- sum(data_pres$total_votes)
+total_votes_country
+```
+```{r}
+grouped_df <- data_pres %>%  group_by(candidate) %>%
+        summarise(Sum = sum(total_votes))
+dt <- grouped_df$Sum[grouped_df$candidate == "Donald Trump"]
+jb <- grouped_df$Sum[grouped_df$candidate == "Joe Biden"]
+prop <- (dt+jb)/total_votes_country
+total_votes_rep_dem <- dt+jb
+```
+
+
+```{r}
+state_policy <-  read_csv(here("data","covid", "state_policy_updates_20210131_1920.csv"))
+```
+```{r}
+mask_data <- read_csv(here("data", "covid", "mask-use-by-county.csv"))
+```
+```{r}
+dat <- urbnmapr::countydata
+length(which(!(dat$county_fips== mask_data$COUNTYFP)))
+which(!(dat$county_fips== mask_data$COUNTYFP))
+dat$county_fips[81:93]
+mask_data$COUNTYFP[81:93]
+
+dat[order(dat$county_fips),]$county_fips[2412:2419]
+mask_data[order(mask_data$COUNTYFP),]$COUNTYFP[2412:2419]
+
+
+ord_fp_dat <- dat[order(dat$county_fips),]
+ord_fp_mask_data <- mask_data[order(mask_data$COUNTYFP),]
+
+length(which(!(ord_fp_dat$county_fips== ord_fp_mask_data$COUNTYFP)))
+```
+
+```{r}
+dat_counties <- urbnmapr::counties
+colnames(mask_data)[1] <- "county_fips"
+
+combined_data <- left_join(mask_data, dat_counties, by = "county_fips")
+
+```
+
+```{r}
+combined_data %>%
+  ggplot(aes(long, lat, group = group, fill = NEVER)) +
+  geom_polygon(color = NA) +
+  scale_fill_continuous(labels = scales::percent, guide = guide_colourbar(direction = "horizontal",title.position = "top")) +
+  geom_polygon(data = states, mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.43, "in"),
+        legend.position="top") +
+  labs(fill = "Proportion Never Wearing Mask")
+```
+```{r}
+combined_data %>%
+  ggplot(aes(long, lat, group = group, fill = ALWAYS)) +
+  geom_polygon(color = NA) +
+  scale_fill_continuous(labels = scales::percent, guide = guide_colourbar(direction = "horizontal",title.position = "top")) +
+  geom_polygon(data = states, mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.43, "in"),
+        legend.position="top") +
+  labs(fill = "Proportion Always Wearing Mask")
+```
+```{r}
+length(unique(dat_counties[["county_fips"]]))
+length(unique(data_pres[["county"]]))
+
+```
+
+```{r}
+new_pres_data <- read_csv(here("data", "election", "2020_US_County_Level_Presidential_Results.csv"))
+length(unique(new_pres_data[["county_fips"]]))
+```
+```{r}
+pres_combined_data <- left_join(dat_counties, new_pres_data, by = "county_fips")
+length(unique(pres_combined_data[["county_fips"]]))
+```
+```{r}
+pres_combined_data %>%
+  ggplot(aes(long, lat, group = group, fill = per_gop)) +
+  geom_polygon(color = NA) +
+ scale_fill_continuous(labels = scales::percent, guide = guide_colourbar(direction = "horizontal",title.position = "top")) +
+  geom_polygon(data = states, mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") +
+  labs(fill = "Percentage Votes Republican")
+
+```
+```{r}
+pres_combined_data %>%
+  ggplot(aes(long, lat, group = group, fill = per_dem)) +
+  geom_polygon(color = NA) +
+  scale_fill_continuous(labels = scales::percent, guide = guide_colourbar(direction = "horizontal",title.position = "top")) +
+  geom_polygon(data = states, mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") +
+  labs(fill = "Percentage Votes Democrat")
+```
+

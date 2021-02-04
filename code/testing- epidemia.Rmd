@@ -8,6 +8,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+library(COVID19)
+library(epidemia)
+```
+
+
+```{r}
 data("EuropeCovid")
 args <- EuropeCovid
 args$algorithm <- "sampling"
