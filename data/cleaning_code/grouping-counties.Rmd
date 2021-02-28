@@ -1,0 +1,262 @@
+---
+title: "Grouping Counties"
+author: "Emma Landry"
+date: "2/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(here)
+library(readxl)
+library(tidyr)
+library(zoo)
+library(stringr)
+```
+
+```{r}
+here::here()
+```
+We start by generation our population data set.
+
+```{r}
+pop<- read_excel(here("data","county_adjacency", "co-est2019-annres.xlsx"))
+colnames <- pop[3,] #set the column names
+colnames[1] <- "Geographic Area" #rename first entry
+colnames(pop) <- colnames
+
+pop <- pop[-c(1,2,3),] #remove first three rows which don't contain data
+pop$`Geographic Area`<- sub('.', '', pop$`Geographic Area`) #remove the added fullstop at the beginning of each entry
+pop <- pop[-c(1, 3144,3145, 3146, 3147, 3148, 3149),] #remove last rows that don't contain data
+pop<- separate(pop, `Geographic Area`, sep = ",", into = c("county", "state")) #separate into county and state
+```
+
+```{r}
+pop_2019 <- data.frame(pop$county, pop$state, pop$`2019`)# data set with only 2019 population
+colnames(pop_2019) <- c("county", "state", "population")
+pop_2019$state<- sub('.', '', pop$state)#remove the space at the front of each entry
+pop_2019 <- subset( pop_2019, state!= "Hawaii" & state != "District of Columbia") #remove hawai as problem with adjacency
+pop_2019 <- rbind(pop_2019[1:2910,],c("Bedford city", "Virginia", 78997),pop_2019[-(1:2910),]) #add population for Bedford, VA which was missing
+```
+
+
+Now prepare the adjacency data
+```{r}
+adj <- read.csv(here("data","county_adjacency", "county_adjacency2010.csv"), header = TRUE)
+colnames(adj)<- c("county_name", "county_fips", "neighbor_name", "neighbor_fips") #rename columns
+adj <- separate(adj, county_name , sep = ", ", into = c("county", "state")) #separate into county and state
+adj <- subset(adj, state != "VI"& state != "PR" & state != "MP"& state != "GU" & state != "AS" & state!= "HI" & state!= "DC") #remove Hawaii and territories
+
+adj <- separate(adj, neighbor_name, sep = ", ", into = c("neighbor_county", "neighbor_state"))
+```
+
+We notice there are some problems with the data. Start with fixing Minnesota.
+```{r}
+index <- adj$county_fips ==27165
+adj$county[index] <- "Watonwan County"
+
+index <- adj$county_fips ==27111
+adj$county[index] <- "Otter Tail County"
+```
+
+Fixing Alaska:
+
+```{r}
+index <- adj$county_fips == 2270
+adj$county[index] <- "Kusilvak Census Area"
+
+index <- adj$neighbor_fips ==2270
+adj$neighbor_county[index] <- "Kusilvak Census Area"
+
+index<- adj$county_fips== 2195
+adj$county[index] <- "Petersburg Borough"
+
+index <- adj$neighbor_fips ==2195
+adj$neighbor_county[index] <- "Petersburg Borough"
+
+```
+
+Fixing Louisiana :
+```{r}
+index <- adj$county_fips== 22059
+adj$county[index] <- "LaSalle Parish"
+
+index <- adj$neighbor_fips==22059
+adj$neighbor_county[index] <- "LaSalle Parish"
+```
+
+New Mexico:
+```{r}
+index <- adj$county_fips == 35013 
+adj$county[index] = "Doña Ana County"
+
+index <- adj$neighbor_fips == 35013
+adj$neighbor_county[index] ="Doña Ana County"
+```
+
+North Dakota:
+```{r}
+index <- pop_2019$county == "ottineau County"
+pop_2019$county[index] = "Bottineau County"
+```
+
+South Dakota:
+```{r}
+index <- adj$county_fips== 46113
+adj$county[index] <- "Oglala Lakota County"
+
+index <- adj$neighbor_fips== 46113
+adj$neighbor_county[index] <- "Oglala Lakota County"
+```
+
+
+We start with only looking at California (can then generalize for other states)
+```{r}
+calif_pop <- subset(pop_2019, state == "California")
+adj_calif <- subset (adj, state == "CA")
+
+adj_calif <- subset(adj_calif, county_fips != neighbor_fips)
+adj_calif <- subset(adj_calif, neighbor_state == "CA")
+```
+
+```{r}
+counties1 <- calif_pop$county
+counties2 <- unique(adj_calif$county)
+sum(counties1==counties2)/ length(counties1)
+```
+
+```{r}
+california <-left_join(adj_calif, calif_pop, by = "county")
+california <- data.frame(california$county, california$county_fips, california$population, california$neighbor_county, california$neighbor_fips)
+colnames(california) <- c("county", "county_fips", "population", "neighbor_county", "neighbor_fips")
+
+california <- left_join(california, calif_pop, by = c("neighbor_county"="county"))
+cnames <- colnames(california)
+cnames[3] <- "population"
+cnames[7] <- "neighbor_population"
+colnames(california) <- cnames
+california$state <- NULL
+```
+
+```{r}
+nrow(subset(calif_pop, population >150000))
+nrow(calif_pop)
+```
+```{r}
+california_copy <- california
+california_copy$population <- as.numeric(california_copy$population)
+min_c <- california_copy[which.min(california_copy$population),]$county
+min_fips <-california_copy[which.min(california_copy$population),]$county_fips
+
+tmp <- subset(california_copy, county == min_c)
+min_neighbor <- tmp[which.min(tmp$neighbor_population),]$neighbor_county
+min_neighbor_fips <- tmp[which.min(tmp$neighbor_population),]$neighbor_fips
+group1 <- c(min_fips, min_neighbor_fips)
+
+tmp <- subset (california_copy, county== min_c | county == min_neighbor)
+tmp <- subset (tmp , neighbor_county != min_c & neighbor_county != min_neighbor)
+tmp$county <- rep("Group 1", nrow(tmp))
+tmp$population <- rep ((tmp$population[1]+ tmp$population[nrow(tmp)]),nrow(tmp))
+
+tmp$county_fips <- rep(list(group1), nrow(tmp))
+tmp <- unique(tmp)
+
+california_copy<- subset(california_copy, county != min_c & county != min_neighbor)
+california_copy <- rbind(california_copy, tmp)
+```
+
+```{r}
+california_copy <- california
+california_copy$population <- as.numeric(california_copy$population)
+min_pop <- min(california_copy$population)
+min_c <- california_copy[which.min(california_copy$population),]$county
+i =1
+while (min_pop <= 150000){
+  i = i+1
+  min_c <- california_copy[which.min(california_copy$population),]$county
+  min_fips <-california_copy[which.min(california_copy$population),]$county_fips
+  
+  tmp <- subset(california_copy, county == min_c)
+  min_neighbor <- tmp[which.min(tmp$neighbor_population),]$neighbor_county
+  min_neighbor_fips <- tmp[which.min(tmp$neighbor_population),]$neighbor_fips
+  group <- c(min_fips, min_neighbor_fips)
+  
+  tmp <- subset (california_copy, county== min_c | county == min_neighbor)
+  tmp <- subset (tmp , neighbor_county != min_c & neighbor_county != min_neighbor)
+  string <- paste("Group", i)
+  tmp$county <- rep(string, nrow(tmp))
+  tmp$population <- rep ((tmp$population[1]+ tmp$population[nrow(tmp)]),nrow(tmp))
+  
+  tmp$county_fips <- rep(list(group), nrow(tmp))
+  tmp <- unique(tmp)
+  
+  california_copy<- subset(california_copy, county != min_c & county != min_neighbor)
+  california_copy <- rbind(california_copy, tmp)
+  min_pop <- min(california_copy$population)
+}
+```
+
+```{r}
+california_groups <-unique(california_copy$county_fips)
+```
+
+```{r}
+grouping_state <- function(cap,short, comp= TRUE, dataset = FALSE ){
+  
+  state_pop <- subset(pop_2019, state == cap)
+  adj_state <- subset (adj, state == short)
+
+  adj_state <- subset(adj_state, county_fips != neighbor_fips)
+  adj_state <- subset(adj_state, neighbor_state == short)
+  
+  counties1 <- str_sort(state_pop$county)
+  counties2 <- str_sort(unique(adj_state$county))
+  comparison <- sum(counties1==counties2)/ length(counties1)
+  
+  if (comp == TRUE){
+  return(c(length(counties1), length(counties2),comparison))
+  }
+  if (dataset == TRUE){
+    return(list(state_pop, adj_state))
+  }
+}
+
+grouping_state("Florida", "FL")
+
+```
+```{r}
+x =1
+for (i in unique(pop_2019$state)){
+  cap = i
+  short = unique(adj$state) [x]
+  print(cap)
+  print(grouping_state(cap, short))
+  x = x+1
+}
+```
+```{r}
+pop_counties <-unique( grouping_state("Alaska", "AK", comp = FALSE, dataset= TRUE)[[1]]$county)
+
+adj_counties  <-unique(grouping_state("Alaska", "AK", comp = FALSE, dataset= TRUE)[[2]]$county)
+
+str_sort(pop_counties)==str_sort(adj_counties)
+str_sort(pop_counties)[9:22]
+str_sort(adj_counties)[9:22]
+
+
+```
+
+```{r}
+unique(pop_2019$state)
+unique(adj$state)
+```
+```{r}
+mn_adj <- subset(adj, state == "AK")
+
+```
+
+
+

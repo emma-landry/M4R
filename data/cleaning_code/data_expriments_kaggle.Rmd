@@ -23,7 +23,7 @@ here::here()
 ```
 
 ```{r}
-data_pres <- read_csv(here("data","kaggle", "president_county_candidate.csv"))
+data_pres <- read.csv(here("data","kaggle", "president_county_candidate.csv"))
 ```
 
 ```{r}
@@ -41,11 +41,13 @@ total_votes_rep_dem <- dt+jb
 
 
 ```{r}
-state_policy <-  read_csv(here("data","covid", "state_policy_updates_20210131_1920.csv"))
+state_policy <-  read.csv(here("data","covid", "state_policy_updates_20210131_1920.csv"))
 ```
+
 ```{r}
-mask_data <- read_csv(here("data", "covid", "mask-use-by-county.csv"))
+mask_data <- read.csv(here("data", "covid", "mask-use-by-county.csv"))
 ```
+
 ```{r}
 dat <- urbnmapr::countydata
 length(which(!(dat$county_fips== mask_data$COUNTYFP)))
@@ -66,6 +68,7 @@ length(which(!(ord_fp_dat$county_fips== ord_fp_mask_data$COUNTYFP)))
 ```{r}
 dat_counties <- urbnmapr::counties
 colnames(mask_data)[1] <- "county_fips"
+dat_counties$county_fips <- as.numeric(as.character(dat_counties$county_fips))
 
 combined_data <- left_join(mask_data, dat_counties, by = "county_fips")
 
@@ -104,7 +107,8 @@ length(unique(data_pres[["county"]]))
 ```
 
 ```{r}
-new_pres_data <- read_csv(here("data", "election", "2020_US_County_Level_Presidential_Results.csv"))
+new_pres_data <- read.csv(here("data", "election", "2020_US_County_Level_Presidential_Results.csv"))
+new_pres_data$county_fips <- as.numeric(as.character(new_pres_data$county_fips))
 length(unique(new_pres_data[["county_fips"]]))
 ```
 ```{r}

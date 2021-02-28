@@ -1,0 +1,99 @@
+---
+title: "Epidemia Data Prep"
+author: "Emma Landry"
+date: "2/19/2021"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(here)
+library(dplyr)
+library(tidyr)
+library(readr)
+```
+
+```{r}
+here::here()
+```
+
+```{r}
+deaths_all <- read_csv(here("data", "covid", "covid_deaths_usafacts.csv"))
+
+cases_all <- read_csv(here("data", "covid","covid_confirmed_usafacts.csv" ))
+```
+
+
+```{r}
+deaths <- deaths_all[,1:318]
+cases <- cases_all[,1:318]
+```
+
+We know use Andrea's code for processing data to be used in epidemia.
+
+Processing cases and deaths data
+```{r}
+cases <- pivot_longer(
+  cases, 
+  cols = contains("-"), 
+  names_to = "date", 
+  values_to = "cases"
+)
+```
+
+```{r}
+deaths <- pivot_longer(
+  deaths, 
+  cols = contains("-"), 
+  names_to = "date", 
+  values_to = "deaths"
+)
+```
+
+Joining the datasets by FIPS
+```{r}
+deaths <- select(deaths, countyFIPS, StateFIPS, date, deaths)
+data <- left_join(cases, deaths)
+```
+
+Remove "Statewide Unallocated"
+```{r}
+data <- filter(data,
+               `County Name` != "Statewide Unallocated"
+)
+```
+
+
+```{r}
+data <- data %>% 
+  rename(county = `County Name`) %>%
+  group_by(county) %>% 
+  mutate(
+    cases =  diff(c(0, cases)), 
+    deaths = diff(c(0, deaths))
+  )
+```
+
+```{r}
+data <- mutate(data,
+               date = as.Date(date),
+               state = State,
+               cases = replace(cases, cases < 0, NA),
+               deaths = replace(deaths, deaths < 0, NA)
+)
+```
+
+```{r}
+saveRDS(data, file = here("data", "covid", "prepped_epi_data.rds"))
+```
+
+```{r}
+args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+```
+

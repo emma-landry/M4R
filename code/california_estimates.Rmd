@@ -1,0 +1,119 @@
+---
+title: "california_estimates"
+author: "Emma Landry"
+date: "2/26/2021"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+```
+
+```{r}
+here::here()
+```
+
+```{r}
+data <- readRDS(here("data", "covid", "prepped_epi_data.rds"))
+data <- filter(data, county == "Alameda County", state == "CA")
+
+```
+
+```{r}
+cases_no_NA = data$cases
+cases_no_NA[is.na(cases_no_NA)]=0
+idx <- which(cumsum(cases_no_NA) >= 10)[1]
+
+if (length(idx) == 0) {
+  stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+}
+
+start_date <- data$date[idx] - 7
+data <- filter(data, date >= start_date)
+```
+
+```{r}
+data <- mutate(data, week = as.integer(format(date, "%V")))
+```
+
+```{r}
+pops <- 1671329
+pops <- data.frame("county" = "Alameda County", "population"= pops)
+```
+
+```{r}
+args <- list(data= data, si = EuropeCovid$si)
+```
+
+
+```{r}
+deaths <- epiobs(
+  formula = deaths(county, date) ~ 1,
+  family = "neg_binom", # overdispersion for daily counts
+  i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+```
+
+```{r}
+cases <- epiobs(
+  formula = cases(county, date) ~ 1,
+  i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
+  family = "neg_binom",
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+```
+```{r}
+args$obs <- list(deaths = deaths)
+```
+
+```{r}
+args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+
+args$pops <- pops
+
+```
+
+
+```{r}
+args$algorithm <- "sampling"
+args$pop_adjust <- FALSE
+#args$init_run <- list(iter = 1e3, control = list(adapt_delta = 0.99), chains=1)
+args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+
+fit <- do.call("epim", args)
+
+
+res <- list(
+  fit = fit,
+  county = "Alameda County",
+  state = "CA"
+)
+```
+
+```{r}
+plot_rt(fit)
+```
+```{r}
+rt_alameda <- posterior_rt(fit)
+draws <- rt_alameda$draws
+plot(colMeans(draws))
+```
+
+```{r}
+plot(apply(draws,2, median))
+```
+```{r}
+saveRDS(res, file =  here("epidemia_fits", "california", "alameda_county_CA.rds"))
+```
+
