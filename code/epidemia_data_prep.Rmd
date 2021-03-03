@@ -88,12 +88,7 @@ data <- mutate(data,
 ```
 
 ```{r}
-saveRDS(data, file = here("data", "covid", "prepped_epi_data.rds"))
+saveRDS(data, file = here("data", "grouped_counties", "california_groups.rds"))
 ```
 
-```{r}
-args$rt <- epirt(
-  formula = R(county, date) ~ rw(time=week)
-)
-```
 

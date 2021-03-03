@@ -104,6 +104,7 @@ res <- list(
 ```{r}
 plot_rt(fit)
 ```
+
 ```{r}
 rt_alameda <- posterior_rt(fit)
 draws <- rt_alameda$draws
@@ -113,7 +114,11 @@ plot(colMeans(draws))
 ```{r}
 plot(apply(draws,2, median))
 ```
+
 ```{r}
 saveRDS(res, file =  here("epidemia_fits", "california", "alameda_county_CA.rds"))
 ```
+
+
+
 

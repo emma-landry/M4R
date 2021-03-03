@@ -145,28 +145,7 @@ california$state <- NULL
 nrow(subset(calif_pop, population >150000))
 nrow(calif_pop)
 ```
-```{r}
-california_copy <- california
-california_copy$population <- as.numeric(california_copy$population)
-min_c <- california_copy[which.min(california_copy$population),]$county
-min_fips <-california_copy[which.min(california_copy$population),]$county_fips
 
-tmp <- subset(california_copy, county == min_c)
-min_neighbor <- tmp[which.min(tmp$neighbor_population),]$neighbor_county
-min_neighbor_fips <- tmp[which.min(tmp$neighbor_population),]$neighbor_fips
-group1 <- c(min_fips, min_neighbor_fips)
-
-tmp <- subset (california_copy, county== min_c | county == min_neighbor)
-tmp <- subset (tmp , neighbor_county != min_c & neighbor_county != min_neighbor)
-tmp$county <- rep("Group 1", nrow(tmp))
-tmp$population <- rep ((tmp$population[1]+ tmp$population[nrow(tmp)]),nrow(tmp))
-
-tmp$county_fips <- rep(list(group1), nrow(tmp))
-tmp <- unique(tmp)
-
-california_copy<- subset(california_copy, county != min_c & county != min_neighbor)
-california_copy <- rbind(california_copy, tmp)
-```
 
 ```{r}
 california_copy <- california
@@ -179,10 +158,12 @@ while (min_pop <= 150000){
   min_c <- california_copy[which.min(california_copy$population),]$county
   min_fips <-california_copy[which.min(california_copy$population),]$county_fips
   
+  #Choose the neighbour with lowest population to merge
   tmp <- subset(california_copy, county == min_c)
   min_neighbor <- tmp[which.min(tmp$neighbor_population),]$neighbor_county
   min_neighbor_fips <- tmp[which.min(tmp$neighbor_population),]$neighbor_fips
   group <- c(min_fips, min_neighbor_fips)
+  
   
   tmp <- subset (california_copy, county== min_c | county == min_neighbor)
   tmp <- subset (tmp , neighbor_county != min_c & neighbor_county != min_neighbor)
@@ -195,12 +176,30 @@ while (min_pop <= 150000){
   
   california_copy<- subset(california_copy, county != min_c & county != min_neighbor)
   california_copy <- rbind(california_copy, tmp)
+  
+  #We need to remove the grouped county as neighbor from others
+  nrowmin<- length(california_copy$neighbor_fips[california_copy$neighbor_county == min_c] )
+  nrowminneigh <- length(california_copy$neighbor_fips[california_copy$neighbor_county == min_neighbor])
+  
+  california_copy$neighbor_fips[california_copy$neighbor_county == min_c] <- rep(list(group),nrowmin)
+  california_copy$neighbor_fips[california_copy$neighbor_county == min_neighbor] <- rep(list(group), nrowminneigh)
+  
+  california_copy$neighbor_population[california_copy$neighbor_county == min_c] <- rep(tmp$population[1], nrowmin)
+  california_copy$neighbor_population[california_copy$neighbor_county == min_neighbor] <- rep(tmp$population[1], nrowminneigh)
+  
+  california_copy$neighbor_county[california_copy$neighbor_county == min_c] <- rep(string, nrowmin)
+  california_copy$neighbor_county[california_copy$neighbor_county == min_neighbor] <- rep(string, nrowminneigh)
+  
+  california_copy= unique(california_copy)
+  
   min_pop <- min(california_copy$population)
+  
+   
 }
 ```
 
 ```{r}
-california_groups <-unique(california_copy$county_fips)
+california_groups <- unique(subset(california_copy, select= -c(neighbor_county, neighbor_fips,neighbor_population)))
 ```
 
 ```{r}
@@ -253,10 +252,11 @@ str_sort(adj_counties)[9:22]
 unique(pop_2019$state)
 unique(adj$state)
 ```
-```{r}
-mn_adj <- subset(adj, state == "AK")
 
-```
+
+
+
+
 
 
 
