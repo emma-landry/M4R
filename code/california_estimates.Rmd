@@ -1,0 +1,120 @@
+---
+title: "California Epidemia"
+author: "Emma Landry"
+date: "3/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+```
+
+
+```{r}
+groups <- readRDS(here("data", "grouped_counties", "california_groups.rds"))
+data <- readRDS(here("data", "covid", "prepped_epi_data.rds"))
+```
+
+```{r}
+california_data <- filter(data, state == "CA")
+```
+
+Checking that the FIPS correspond
+```{r}
+N <- nrow(groups)
+fips <- c()
+for (i in seq (1:N)){
+  fips <- c(fips, unlist(groups$county_fips[i]))
+}
+calif_fips <- unique (california_data$countyFIPS)
+```
+
+```{r}
+length(sort(calif_fips) == sort(as.double(fips)))
+length(fips)
+```
+All good.
+
+```{r}
+data_sub <- filter(california_data, countyFIPS == "6005" | countyFIPS == "6007")
+tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum)
+data_sub <- data_sub[1:314,]
+data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
+data_sub <- cbind(data_sub, tmp)
+data_sub$county <- rep("Group 1", 314)
+```
+
+
+```{r}
+for (i in seq (1:N)){
+  
+  #Obtaining the data
+  fips <- unlist(groups$county_fips[i])
+  
+  if (length(fips)==1){
+    data_sub <- filter(california_data, countyFIPS == fips)
+  }else{
+    data_sub <- filter(california_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum)
+    data_sub <- data_sub[1:314,]
+    data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
+    data_sub <- cbind(data_sub, tmp)
+    data_sub$county <- rep(groups$county[i], 314)
+  }
+  
+  #Doing the models
+  cases_no_NA = data_sub$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- data_sub$date[idx] - 7
+  data_sub <- filter(data_sub, date >= start_date)
+  
+  data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
+  
+  pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
+  
+  args <- list(data= data_sub, si = EuropeCovid$si)
+  
+  deaths <- epiobs(
+  formula = deaths(county, date) ~ 1,
+  family = "neg_binom", # overdispersion for daily counts
+  i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  cases <- epiobs(
+  formula = cases(county, date) ~ 1,
+  i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
+  family = "neg_binom",
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  args$obs <- list(deaths = deaths)
+  
+  args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+
+  args$pops <- pops
+  
+  args$algorithm <- "sampling"
+  args$pop_adjust <- FALSE
+  #args$init_run <- list(iter = 1e3, control = list(adapt_delta = 0.99), chains=1)
+  args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+}
+```
+

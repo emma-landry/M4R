@@ -254,6 +254,9 @@ unique(adj$state)
 ```
 
 
+```{r}
+saveRDS(california_groups, here("data", "grouped_counties", "california_groups.rds"))
+```
 
 
 
