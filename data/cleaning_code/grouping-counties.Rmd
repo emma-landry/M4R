@@ -353,6 +353,41 @@ saveRDS(pennsyvalnia_groups, here("data", "grouped_counties", "pennsylvania_grou
 ```
 
 
+```{r}
+nd_groups <- do_groups("North Dakota", "ND", 150000)
+nd_groups <- unique(subset(nd_groups, select= -c(neighbor_county, neighbor_fips,neighbor_population)))
+saveRDS(nd_groups, here("data", "grouped_counties", "north_dakota_groups.rds"))
+```
 
+```{r}
+wyoming_groups <- do_groups("Wyoming", "WY", 150000)
+wyoming_groups <- unique(subset(wyoming_groups, select= -c(neighbor_county, neighbor_fips,neighbor_population)))
+saveRDS(nd_groups, here("data", "grouped_counties", "wyoming_groups.rds"))
+```
 
+```{r}
+short_state <- unique(adj$state)
+long_state <- unique(pop_2019$state)
+```
+
+```{r}
+N<- length(short_state)
+length(long_state)
+```
+
+```{r}
+c = 0
+for (i in seq (1:N)){
+  state_groups <- do_groups(long_state[i], short_state[i], 150000)
+  state_groups <- unique(subset(state_groups, select= -c(neighbor_county,neighbor_fips,neighbor_population)))
+  c = c+ nrow(state_groups)
+  print(long_state[i])
+  print(nrow(state_groups))
+}
+```
+
+```{r}
+short_state
+long_state
+```
 

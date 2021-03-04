@@ -1,0 +1,23 @@
+---
+title: "Multiple States"
+author: "Emma Landry"
+date: "3/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+```
+
+
+```{r}
+here::here()
+```
+

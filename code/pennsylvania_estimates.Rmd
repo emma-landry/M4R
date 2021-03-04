@@ -9,22 +9,181 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+here::here()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+groups <- readRDS(here::here("data", "grouped_counties", "pennsylvania_groups.rds"))
+data <- readRDS(here::here("data", "covid", "prepped_epi_data.rds"))
+```
+
+```{r}
+pennsylvania_data <- filter(data, state == "PA")
+```
+
+```{r}
+N <- nrow(groups)
+fips <- c()
+for (i in seq (1:N)){
+  fips <- c(fips, unlist(groups$county_fips[i]))
+}
+pennsylvania_fips <- unique (pennsylvania_data$countyFIPS)
+```
+
+```{r}
+length(sort(pennsylvania_fips) == sort(as.double(fips)))
+length(fips)
+```
+
+```{r}
+unique(pennsylvania_data$county)
+unique(groups$county)
+```
+
+We notice NA values on the first day of the data for some of the states. We replace these by 0 (fair assumption).
+```{r}
+a<- which(is.na(pennsylvania_data$deaths) & pennsylvania_data$date=="2020-01-22")
+pennsylvania_data[a,]$deaths <- 0
+
+b<- which((pennsylvania_data$date == "2020-10-01"| pennsylvania_data$date == "2020-10-03") & pennsylvania_data$countyFIPS==42073)
+pennsylvania_data[b,]$deaths <- 0
+
+c<- which((pennsylvania_data$date == "2020-07-08") & pennsylvania_data$countyFIPS==42127)
+pennsylvania_data[c,]$deaths <- 0
+
+d<- which((pennsylvania_data$date == "2020-09-21") & pennsylvania_data$countyFIPS==42097)
+pennsylvania_data[d,]$deaths <- 0
+```
+
+01-22 : replace by 0
+08-29: Berks ignore
+06-29: Bucks ignore
+07-17: Chester  ignore
+11-12: Delaware ignore
+10-01: Lackawanna (ignore)+ Lawrence (0)
+10-03: Lackawanna(ignore) + Lawrence (0)
+07-31: Lehigh ignore
+08-27: Montgomery ignore
+10-16: Montgomery ignore
+09-21: NOrhtumberland (checked : 0)
+07-08: Wayne (cheked: 0)
+09-09: York ignore
+
+Now do the same with cases
+```{r}
+a<- which(is.na(pennsylvania_data$cases) & pennsylvania_data$date=="2020-01-22")
+pennsylvania_data[a,]$cases <- 0
+
+a<- which(is.na(pennsylvania_data$cases))
+pennsylvania_data[a,]
+```
+Too many to manyally correct, ignore:  it's never more than a few days missing
+
+
+```{r}
+for (i in (seq (1:N))){
+  
+  #Obtaining the data
+  fips <- unlist(groups$county_fips[i])
+  
+  if (length(fips)==1){
+    data_sub <- filter(pennsylvania_data, countyFIPS == fips)
+  }else{
+    data_sub <- filter(pennsylvania_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum)
+    data_sub <- data_sub[1:314,]
+    data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
+    data_sub <- cbind(data_sub, tmp)
+    n <- nrow (data_sub)
+    data_sub$county <- rep(groups$county[i], n)
+  }
+  
+  #Doing the models
+  cases_no_NA = data_sub$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- data_sub$date[idx] - 7
+  data_sub <- filter(data_sub, date >= start_date)
+  
+  data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
+  
+  pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
+  
+  args <- list(data= data_sub, si = EuropeCovid$si)
+  
+  deaths <- epiobs(
+  formula = deaths(county, date) ~ 1,
+  family = "neg_binom", # overdispersion for daily counts
+  i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  cases <- epiobs(
+  formula = cases(county, date) ~ 1,
+  i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
+  family = "neg_binom",
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  args$obs <- list(deaths = deaths)
+  
+  args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+
+  args$pops <- pops
+  
+  args$algorithm <- "sampling"
+  args$pop_adjust <- FALSE
+  args$init_run <- TRUE
+  args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+  
+  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "PA.rds")
+  
+  fit <- do.call("epim", args)
+
+
+  res <- list(
+    fit = fit,
+    county = groups$county[i],
+    state = "PA"
+  )
+  
+  saveRDS(res, file =  here::here("epidemia_fits", "pennsylvania", filename))
+}
+```
+
+```{r}
+philadelphia <- readRDS(here::here("epidemia_fits", "pennsylvania","Philadelphia_County_PA.rds"))
+plot_rt(philadelphia$fit)
+```
+
+```{r}
+group33 <- readRDS(here::here("epidemia_fits", "pennsylvania","Group_33_PA.rds"))
+plot_rt(group33$fit)
+```
+
+```{r}
+yolo <- readRDS(here::here("epidemia_fits", "california","Yolo_County_CA.rds"))
+plot_rt(yolo$fit)
+```
+
+
+
