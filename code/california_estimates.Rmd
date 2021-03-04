@@ -18,13 +18,25 @@ library(readr)
 
 
 ```{r}
-groups <- readRDS(here("data", "grouped_counties", "california_groups.rds"))
-data <- readRDS(here("data", "covid", "prepped_epi_data.rds"))
+here::here()
+```
+
+
+```{r}
+groups <- readRDS(here::here("data", "grouped_counties", "california_groups.rds"))
+data <- readRDS(here::here("data", "covid", "prepped_epi_data.rds"))
 ```
 
 ```{r}
 california_data <- filter(data, state == "CA")
 ```
+
+
+```{r}
+index <- california_data$county == "City and County of San Francisco"
+california_data$county[index] <- "San Francisco County"
+```
+
 
 Checking that the FIPS correspond
 ```{r}
@@ -53,7 +65,7 @@ data_sub$county <- rep("Group 1", 314)
 
 
 ```{r}
-for (i in seq (1:N)){
+for (i in (seq (1:N))){
   
   #Obtaining the data
   fips <- unlist(groups$county_fips[i])
@@ -113,8 +125,26 @@ for (i in seq (1:N)){
   
   args$algorithm <- "sampling"
   args$pop_adjust <- FALSE
-  #args$init_run <- list(iter = 1e3, control = list(adapt_delta = 0.99), chains=1)
+  args$init_run <- TRUE
   args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+  
+  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "CA.rds")
+  
+  fit <- do.call("epim", args)
+
+
+  res <- list(
+    fit = fit,
+    county = groups$county[i],
+    state = "CA"
+  )
+  
+  saveRDS(res, file =  here::here("epidemia_fits", "california", filename))
 }
+```
+```{r}
+unique(california_data$county)
+unique(groups$county)
+
 ```
 

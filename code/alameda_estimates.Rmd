@@ -20,7 +20,7 @@ here::here()
 ```
 
 ```{r}
-data <- readRDS(here("data", "covid", "prepped_epi_data.rds"))
+data <- readRDS(here::here("data", "covid", "prepped_epi_data.rds"))
 data <- filter(data, county == "Alameda County", state == "CA")
 
 ```
@@ -71,6 +71,7 @@ cases <- epiobs(
   link = "identity"
 )
 ```
+
 ```{r}
 args$obs <- list(deaths = deaths)
 ```
@@ -88,7 +89,7 @@ args$pops <- pops
 ```{r}
 args$algorithm <- "sampling"
 args$pop_adjust <- FALSE
-#args$init_run <- list(iter = 1e3, control = list(adapt_delta = 0.99), chains=1)
+args$init_run <- TRUE
 args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
 
 fit <- do.call("epim", args)

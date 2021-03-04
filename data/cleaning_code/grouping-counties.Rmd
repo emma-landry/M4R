@@ -203,7 +203,7 @@ california_groups <- unique(subset(california_copy, select= -c(neighbor_county, 
 ```
 
 ```{r}
-grouping_state <- function(cap,short, comp= TRUE, dataset = FALSE ){
+grouping_state <- function(cap,short){
   
   state_pop <- subset(pop_2019, state == cap)
   adj_state <- subset (adj, state == short)
@@ -215,17 +215,104 @@ grouping_state <- function(cap,short, comp= TRUE, dataset = FALSE ){
   counties2 <- str_sort(unique(adj_state$county))
   comparison <- sum(counties1==counties2)/ length(counties1)
   
-  if (comp == TRUE){
-  return(c(length(counties1), length(counties2),comparison))
-  }
-  if (dataset == TRUE){
-    return(list(state_pop, adj_state))
-  }
+  return(list(state_pop, adj_state))
 }
 
-grouping_state("Florida", "FL")
-
 ```
+
+```{r}
+grouping_step2 <- function(cap, short){
+  state_pop <- grouping_state(cap, short)[[1]]
+  adj_state <- grouping_state(cap, short)[[2]]
+  
+  state_df <-left_join(adj_state, state_pop, by = "county")
+  state_df <- data.frame(state_df$county, state_df$county_fips, state_df$population, state_df$neighbor_county, state_df$neighbor_fips)
+  colnames(state_df) <- c("county", "county_fips", "population", "neighbor_county", "neighbor_fips")
+  
+  state_df <- left_join(state_df, state_pop, by = c("neighbor_county"="county"))
+  cnames <- colnames(state_df)
+  cnames[3] <- "population"
+  cnames[7] <- "neighbor_population"
+  colnames(state_df) <- cnames
+  state_df$state <- NULL
+  
+  return(state_df)
+}
+```
+
+```{r}
+do_groups <- function(cap,short, tol){
+  state_df <- grouping_step2(cap, short)
+  
+  state_df$population <- as.numeric(state_df$population)
+  min_pop <- min(state_df$population)
+  min_c <- state_df[which.min(state_df$population),]$county
+  i =1
+  
+  while (min_pop <= tol){
+    i = i+1
+    min_c <- state_df[which.min(state_df$population),]$county
+    min_fips <-state_df[which.min(state_df$population),]$county_fips
+    
+    #Choose the neighbour with lowest population to merge
+    tmp <- subset(state_df, county == min_c)
+    min_neighbor <- tmp[which.min(tmp$neighbor_population),]$neighbor_county
+    min_neighbor_fips <- tmp[which.min(tmp$neighbor_population),]$neighbor_fips
+    group <- c(min_fips, min_neighbor_fips)
+    
+    tmp <- subset (state_df, county== min_c | county == min_neighbor)
+    tmp <- subset (tmp , neighbor_county != min_c & neighbor_county != min_neighbor)
+    string <- paste("Group", i)
+    tmp$county <- rep(string, nrow(tmp))
+    tmp$population <- rep ((tmp$population[1]+ tmp$population[nrow(tmp)]),nrow(tmp))
+    
+    tmp$county_fips <- rep(list(group), nrow(tmp))
+    tmp <- unique(tmp)
+    
+    state_df<- subset(state_df, county != min_c & county != min_neighbor)
+    state_df <- rbind(state_df, tmp)
+    
+    #We need to remove the grouped county as neighbor from others
+    nrowmin<- length(state_df$neighbor_fips[state_df$neighbor_county == min_c] )
+    nrowminneigh <- length(state_df$neighbor_fips[state_df$neighbor_county == min_neighbor])
+    
+    state_df$neighbor_fips[state_df$neighbor_county == min_c] <- rep(list(group),nrowmin)
+    state_df$neighbor_fips[state_df$neighbor_county == min_neighbor] <- rep(list(group), nrowminneigh)
+    
+    state_df$neighbor_population[state_df$neighbor_county == min_c] <- rep(tmp$population[1], nrowmin)
+    state_df$neighbor_population[state_df$neighbor_county == min_neighbor] <- rep(tmp$population[1], nrowminneigh)
+    
+    state_df$neighbor_county[state_df$neighbor_county == min_c] <- rep(string, nrowmin)
+    state_df$neighbor_county[state_df$neighbor_county == min_neighbor] <- rep(string, nrowminneigh)
+    
+    state_df= unique(state_df)
+    
+    min_pop <- min(state_df$population)
+  }
+  return(state_df)
+}
+```
+
+```{r}
+california_copy
+```
+
+```{r}
+cap = "Texas"
+short = "TX"
+a<- unique(subset(do_groups(cap, short, 150000), select= -c(neighbor_county, neighbor_fips,neighbor_population)))
+
+b<- grouping_step2(cap, short)
+length(unique(b$county))
+
+fips = c()
+for (i in seq(1:nrow(a))){
+  fips = c(fips,unlist(a$county_fips[i]))
+}
+length(fips)
+length(unique(fips))
+```
+
 ```{r}
 x =1
 for (i in unique(pop_2019$state)){
@@ -236,6 +323,7 @@ for (i in unique(pop_2019$state)){
   x = x+1
 }
 ```
+
 ```{r}
 pop_counties <-unique( grouping_state("Alaska", "AK", comp = FALSE, dataset= TRUE)[[1]]$county)
 
@@ -258,6 +346,11 @@ unique(adj$state)
 saveRDS(california_groups, here("data", "grouped_counties", "california_groups.rds"))
 ```
 
+```{r}
+pennsyvalnia_groups <- do_groups("Pennsylvania", "PA", 150000)
+pennsyvalnia_groups <- unique(subset(pennsyvalnia_groups, select= -c(neighbor_county, neighbor_fips,neighbor_population)))
+saveRDS(pennsyvalnia_groups, here("data", "grouped_counties", "pennsylvania_groups.rds"))
+```
 
 
 
