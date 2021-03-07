@@ -163,12 +163,22 @@ Put zero for Kaufman on 30/09 because also missing data for Rockwall on same day
 ```{r}
 a<- which(texas_data$county == "Kaufman County" & texas_data$date == "2020-09-30")
 texas_data[a,]$cases <- 0
+
+a<- which(texas_data$county == "Potter County" & texas_data$date == "2020-07-30")
+texas_data[a,]$deaths <- 0
+
+a<- which(is.na(texas_data$deaths) & texas_data$date == "2020-01-22")
+texas_data[a,]$deaths <- 0
+
+a<- which(is.na(texas_data$cases) & texas_data$date == "2020-01-22")
+texas_data[a,]$cases <- 0
+
 ```
 
 
 
 ```{r}
-for (i in (seq (39:N)+38)){
+for (i in (seq (1:N))){
   
   #Obtaining the data
   fips <- unlist(groups$county_fips[i])
@@ -246,4 +256,791 @@ for (i in (seq (39:N)+38)){
 }
 ```
 
+
+```{r}
+groups <- readRDS(here::here("data", "grouped_counties", "kansas_groups.rds"))
+kansas_data <- filter(data, state == "KS")
+```
+
+```{r}
+N <- nrow(groups)
+fips <- c()
+for (i in seq (1:N)){
+  fips <- c(fips, unlist(groups$county_fips[i]))
+}
+kansas_fips <- unique (kansas_data$countyFIPS)
+```
+
+```{r}
+length(sort(kansas_fips) == sort(as.double(fips)))
+length(fips)
+```
+```{r}
+
+a<- which(is.na(kansas_data$deaths) & kansas_data$date == "2020-01-22")
+kansas_data[a,]$deaths <- 0
+
+a<- which(is.na(kansas_data$cases) & kansas_data$date == "2020-01-22")
+kansas_data[a,]$cases <- 0
+
+a<- which(is.na(kansas_data$deaths))
+kansas_data[a,]
+
+b<- which(is.na(kansas_data$cases))
+kansas_data[b,]
+
+```
+
+```{r}
+for (i in (seq (1:N))){
+  
+  #Obtaining the data
+  fips <- unlist(groups$county_fips[i])
+  
+  if (length(fips)==1){
+    data_sub <- filter(kansas_data, countyFIPS == fips)
+  }else{
+    data_sub <- filter(kansas_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum)
+    data_sub <- data_sub[1:314,]
+    data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
+    data_sub <- cbind(data_sub, tmp)
+    n <- nrow (data_sub)
+    data_sub$county <- rep(groups$county[i], n)
+  }
+  
+  #Doing the models
+  cases_no_NA = data_sub$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- data_sub$date[idx] - 7
+  data_sub <- filter(data_sub, date >= start_date)
+  
+  data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
+  
+  pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
+  
+  args <- list(data= data_sub, si = EuropeCovid$si)
+  
+  deaths <- epiobs(
+  formula = deaths(county, date) ~ 1,
+  family = "neg_binom", # overdispersion for daily counts
+  i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  cases <- epiobs(
+  formula = cases(county, date) ~ 1,
+  i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
+  family = "neg_binom",
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  args$obs <- list(deaths = deaths)
+  
+  args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+
+  args$pops <- pops
+  
+  args$algorithm <- "sampling"
+  args$pop_adjust <- FALSE
+  args$init_run <- TRUE
+  args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+  
+  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "KS.rds")
+  
+  fit <- do.call("epim", args)
+
+  res <- list(
+    fit = fit,
+    county = groups$county[i],
+    state = "KS"
+  )
+  
+  saveRDS(res, file =  here::here("epidemia_fits", "kansas", filename))
+}
+```
+```{r}
+groups <- readRDS(here::here("data", "grouped_counties", "washington_groups.rds"))
+washington_data <- filter(data, state == "WA")
+```
+
+```{r}
+N <- nrow(groups)
+fips <- c()
+for (i in seq (1:N)){
+  fips <- c(fips, unlist(groups$county_fips[i]))
+}
+washington_fips <- unique (washington_data$countyFIPS)
+```
+
+```{r}
+length(sort(washington_fips) == sort(as.double(fips)))
+length(fips)
+```
+
+```{r}
+
+a<- which(is.na(washington_data$deaths) & washington_data$date == "2020-01-22")
+washington_data[a,]$deaths <- 0
+
+a<- which(is.na(washington_data$cases) & washington_data$date == "2020-01-22")
+washington_data[a,]$cases <- 0
+
+a<- which(is.na(washington_data$deaths))
+washington_data[a,]
+
+b<- which(is.na(washington_data$cases))
+washington_data[b,]
+
+```
+Problem with cases on the 24th October for some reason, put all to zero.
+
+```{r}
+a<- which(is.na(washington_data$cases) & washington_data$date == "2020-10-24")
+washington_data[a,]$cases <- 0
+
+a<- which(is.na(washington_data$deaths) & washington_data$date == "2020-08-18")
+washington_data[a,]$deaths <- 0
+```
+
+```{r}
+for (i in (seq (12:N)+11)){
+  print(i)
+  #Obtaining the data
+  fips <- unlist(groups$county_fips[i])
+  
+  if (length(fips)==1){
+    data_sub <- filter(washington_data, countyFIPS == fips)
+  }else{
+    data_sub <- filter(washington_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum)
+    data_sub <- data_sub[1:314,]
+    data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
+    data_sub <- cbind(data_sub, tmp)
+    n <- nrow (data_sub)
+    data_sub$county <- rep(groups$county[i], n)
+  }
+  
+  #Doing the models
+  cases_no_NA = data_sub$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- data_sub$date[idx] - 7
+  data_sub <- filter(data_sub, date >= start_date)
+  
+  data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
+  
+  pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
+  
+  args <- list(data= data_sub, si = EuropeCovid$si)
+  
+  deaths <- epiobs(
+  formula = deaths(county, date) ~ 1,
+  family = "neg_binom", # overdispersion for daily counts
+  i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  cases <- epiobs(
+  formula = cases(county, date) ~ 1,
+  i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
+  family = "neg_binom",
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  args$obs <- list(deaths = deaths)
+  
+  args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+
+  args$pops <- pops
+  
+  args$algorithm <- "sampling"
+  args$pop_adjust <- FALSE
+  args$init_run <- TRUE
+  args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+  
+  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "WA.rds")
+  
+  fit <- do.call("epim", args)
+
+  res <- list(
+    fit = fit,
+    county = groups$county[i],
+    state = "WA"
+  )
+  
+  saveRDS(res, file =  here::here("epidemia_fits", "washington", filename))
+}
+```
+
+```{r}
+groups <- readRDS(here::here("data", "grouped_counties", "florida_groups.rds"))
+florida_data <- filter(data, state == "FL")
+```
+
+```{r}
+N <- nrow(groups)
+fips <- c()
+for (i in seq (1:N)){
+  fips <- c(fips, unlist(groups$county_fips[i]))
+}
+florida_fips <- unique (florida_data$countyFIPS)
+```
+
+```{r}
+length(sort(florida_fips) == sort(as.double(fips)))
+length(fips)
+```
+
+```{r}
+a<- which(is.na(florida_data$deaths) & florida_data$date == "2020-01-22")
+florida_data[a,]$deaths <- 0
+
+a<- which(is.na(florida_data$cases) & florida_data$date == "2020-01-22")
+florida_data[a,]$cases <- 0
+
+a<- which(is.na(florida_data$deaths))
+florida_data[a,]
+
+b<- which(is.na(florida_data$cases))
+florida_data[b,]
+```
+
+```{r}
+for (i in (seq (1:N))){
+  #Obtaining the data
+  fips <- unlist(groups$county_fips[i])
+  
+  if (length(fips)==1){
+    data_sub <- filter(florida_data, countyFIPS == fips)
+  }else{
+    data_sub <- filter(florida_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum)
+    data_sub <- data_sub[1:314,]
+    data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
+    data_sub <- cbind(data_sub, tmp)
+    n <- nrow (data_sub)
+    data_sub$county <- rep(groups$county[i], n)
+  }
+  
+  #Doing the models
+  cases_no_NA = data_sub$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- data_sub$date[idx] - 7
+  data_sub <- filter(data_sub, date >= start_date)
+  
+  data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
+  
+  pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
+  
+  args <- list(data= data_sub, si = EuropeCovid$si)
+  
+  deaths <- epiobs(
+  formula = deaths(county, date) ~ 1,
+  family = "neg_binom", # overdispersion for daily counts
+  i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  cases <- epiobs(
+  formula = cases(county, date) ~ 1,
+  i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
+  family = "neg_binom",
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  args$obs <- list(deaths = deaths)
+  
+  args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+
+  args$pops <- pops
+  
+  args$algorithm <- "sampling"
+  args$pop_adjust <- FALSE
+  args$init_run <- TRUE
+  args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+  
+  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "FL.rds")
+  
+  fit <- do.call("epim", args)
+
+  res <- list(
+    fit = fit,
+    county = groups$county[i],
+    state = "FL"
+  )
+  
+  saveRDS(res, file =  here::here("epidemia_fits", "florida", filename))
+}
+```
+```{r}
+groups <- readRDS(here::here("data", "grouped_counties", "oklahoma_groups.rds"))
+oklahoma_data <- filter(data, state == "OK")
+```
+
+```{r}
+N <- nrow(groups)
+fips <- c()
+for (i in seq (1:N)){
+  fips <- c(fips, unlist(groups$county_fips[i]))
+}
+oklahoma_fips <- unique (oklahoma_data$countyFIPS)
+```
+
+```{r}
+length(sort(oklahoma_fips) == sort(as.double(fips)))
+length(fips)
+```
+
+```{r}
+a<- which(is.na(oklahoma_data$deaths) & oklahoma_data$date == "2020-01-22")
+oklahoma_data[a,]$deaths <- 0
+
+a<- which(is.na(oklahoma_data$cases) & oklahoma_data$date == "2020-01-22")
+oklahoma_data[a,]$cases <- 0
+
+a<- which(is.na(oklahoma_data$deaths))
+oklahoma_data[a,]
+
+b<- which(is.na(oklahoma_data$cases))
+oklahoma_data[b,]
+```
+```{r}
+for (i in (seq (1:N))){
+  #Obtaining the data
+  fips <- unlist(groups$county_fips[i])
+  
+  if (length(fips)==1){
+    data_sub <- filter(oklahoma_data, countyFIPS == fips)
+  }else{
+    data_sub <- filter(oklahoma_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum)
+    data_sub <- data_sub[1:314,]
+    data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
+    data_sub <- cbind(data_sub, tmp)
+    n <- nrow (data_sub)
+    data_sub$county <- rep(groups$county[i], n)
+  }
+  
+  #Doing the models
+  cases_no_NA = data_sub$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- data_sub$date[idx] - 7
+  data_sub <- filter(data_sub, date >= start_date)
+  
+  data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
+  
+  pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
+  
+  args <- list(data= data_sub, si = EuropeCovid$si)
+  
+  deaths <- epiobs(
+  formula = deaths(county, date) ~ 1,
+  family = "neg_binom", # overdispersion for daily counts
+  i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  cases <- epiobs(
+  formula = cases(county, date) ~ 1,
+  i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
+  family = "neg_binom",
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  args$obs <- list(deaths = deaths)
+  
+  args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+
+  args$pops <- pops
+  
+  args$algorithm <- "sampling"
+  args$pop_adjust <- FALSE
+  args$init_run <- TRUE
+  args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+  
+  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "OK.rds")
+  
+  fit <- do.call("epim", args)
+
+  res <- list(
+    fit = fit,
+    county = groups$county[i],
+    state = "OK"
+  )
+  
+  saveRDS(res, file =  here::here("epidemia_fits", "oklahoma", filename))
+}
+```
+```{r}
+groups <- readRDS(here::here("data", "grouped_counties", "new_york_groups.rds"))
+new_york_data <- filter(data, state == "NY")
+```
+
+```{r}
+N <- nrow(groups)
+fips <- c()
+for (i in seq (1:N)){
+  fips <- c(fips, unlist(groups$county_fips[i]))
+}
+new_york_fips <- unique (new_york_data$countyFIPS)
+```
+
+```{r}
+length(sort(new_york_fips) == sort(as.double(fips)))
+length(fips)
+```
+
+```{r}
+a<- which(is.na(new_york_data$deaths) & new_york_data$date == "2020-01-22")
+new_york_data[a,]$deaths <- 0
+
+a<- which(is.na(new_york_data$cases) & new_york_data$date == "2020-01-22")
+new_york_data[a,]$cases <- 0
+
+a<- which(is.na(new_york_data$deaths))
+new_york_data[a,]
+
+b<- which(is.na(new_york_data$cases))
+new_york_data[b,]
+```
+```{r}
+for (i in (seq (1:N))){
+  #Obtaining the data
+  fips <- unlist(groups$county_fips[i])
+  
+  if (length(fips)==1){
+    data_sub <- filter(new_york_data, countyFIPS == fips)
+  }else{
+    data_sub <- filter(new_york_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum)
+    data_sub <- data_sub[1:314,]
+    data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
+    data_sub <- cbind(data_sub, tmp)
+    n <- nrow (data_sub)
+    data_sub$county <- rep(groups$county[i], n)
+  }
+  
+  #Doing the models
+  cases_no_NA = data_sub$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- data_sub$date[idx] - 7
+  data_sub <- filter(data_sub, date >= start_date)
+  
+  data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
+  
+  pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
+  
+  args <- list(data= data_sub, si = EuropeCovid$si)
+  
+  deaths <- epiobs(
+  formula = deaths(county, date) ~ 1,
+  family = "neg_binom", # overdispersion for daily counts
+  i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  cases <- epiobs(
+  formula = cases(county, date) ~ 1,
+  i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
+  family = "neg_binom",
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  args$obs <- list(deaths = deaths)
+  
+  args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+
+  args$pops <- pops
+  
+  args$algorithm <- "sampling"
+  args$pop_adjust <- FALSE
+  args$init_run <- TRUE
+  args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+  
+  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "NY.rds")
+  
+  fit <- do.call("epim", args)
+
+  res <- list(
+    fit = fit,
+    county = groups$county[i],
+    state = "NY"
+  )
+  
+  saveRDS(res, file =  here::here("epidemia_fits", "new_york", filename))
+}
+```
+```{r}
+groups <- readRDS(here::here("data", "grouped_counties", "delaware_groups.rds"))
+delaware_data <- filter(data, state == "DE")
+```
+
+```{r}
+N <- nrow(groups)
+fips <- c()
+for (i in seq (1:N)){
+  fips <- c(fips, unlist(groups$county_fips[i]))
+}
+delaware_fips <- unique (delaware_data$countyFIPS)
+```
+
+```{r}
+length(sort(delaware_fips) == sort(as.double(fips)))
+length(fips)
+```
+
+```{r}
+a<- which(is.na(delaware_data$deaths) & delaware_data$date == "2020-01-22")
+delaware_data[a,]$deaths <- 0
+
+a<- which(is.na(delaware_data$cases) & delaware_data$date == "2020-01-22")
+delaware_data[a,]$cases <- 0
+
+a<- which(is.na(delaware_data$deaths))
+delaware_data[a,]
+
+b<- which(is.na(delaware_data$cases))
+delaware_data[b,]
+```
+
+
+```{r}
+for (i in (seq (1:N))){
+  #Obtaining the data
+  fips <- unlist(groups$county_fips[i])
+  
+  if (length(fips)==1){
+    data_sub <- filter(delaware_data, countyFIPS == fips)
+  }else{
+    data_sub <- filter(delaware_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum)
+    data_sub <- data_sub[1:314,]
+    data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
+    data_sub <- cbind(data_sub, tmp)
+    n <- nrow (data_sub)
+    data_sub$county <- rep(groups$county[i], n)
+  }
+  
+  #Doing the models
+  cases_no_NA = data_sub$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- data_sub$date[idx] - 7
+  data_sub <- filter(data_sub, date >= start_date)
+  
+  data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
+  
+  pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
+  
+  args <- list(data= data_sub, si = EuropeCovid$si)
+  
+  deaths <- epiobs(
+  formula = deaths(county, date) ~ 1,
+  family = "neg_binom", # overdispersion for daily counts
+  i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  cases <- epiobs(
+  formula = cases(county, date) ~ 1,
+  i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
+  family = "neg_binom",
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  args$obs <- list(deaths = deaths)
+  
+  args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+
+  args$pops <- pops
+  
+  args$algorithm <- "sampling"
+  args$pop_adjust <- FALSE
+  args$init_run <- TRUE
+  args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+  
+  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "DE.rds")
+  
+  fit <- do.call("epim", args)
+
+  res <- list(
+    fit = fit,
+    county = groups$county[i],
+    state = "DE"
+  )
+  
+  saveRDS(res, file =  here::here("epidemia_fits", "delaware", filename))
+}
+```
+
+
+```{r}
+groups <- readRDS(here::here("data", "grouped_counties", "kentucky_groups.rds"))
+kentucky_data <- filter(data, state == "KY")
+```
+
+```{r}
+N <- nrow(groups)
+fips <- c()
+for (i in seq (1:N)){
+  fips <- c(fips, unlist(groups$county_fips[i]))
+}
+kentucky_fips <- unique (kentucky_data$countyFIPS)
+```
+
+```{r}
+length(sort(kentucky_fips) == sort(as.double(fips)))
+length(fips)
+```
+
+```{r}
+a<- which(is.na(kentucky_data$deaths) & kentucky_data$date == "2020-01-22")
+kentucky_data[a,]$deaths <- 0
+
+a<- which(is.na(kentucky_data$cases) & kentucky_data$date == "2020-01-22")
+kentucky_data[a,]$cases <- 0
+
+a<- which(is.na(kentucky_data$deaths))
+kentucky_data[a,]
+
+b<- which(is.na(kentucky_data$cases))
+kentucky_data[b,]
+```
+
+```{r}
+for (i in (seq (1:N))){
+  #Obtaining the data
+  fips <- unlist(groups$county_fips[i])
+  
+  if (length(fips)==1){
+    data_sub <- filter(delaware_data, countyFIPS == fips)
+  }else{
+    data_sub <- filter(delaware_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum)
+    data_sub <- data_sub[1:314,]
+    data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
+    data_sub <- cbind(data_sub, tmp)
+    n <- nrow (data_sub)
+    data_sub$county <- rep(groups$county[i], n)
+  }
+  
+  #Doing the models
+  cases_no_NA = data_sub$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- data_sub$date[idx] - 7
+  data_sub <- filter(data_sub, date >= start_date)
+  
+  data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
+  
+  pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
+  
+  args <- list(data= data_sub, si = EuropeCovid$si)
+  
+  deaths <- epiobs(
+  formula = deaths(county, date) ~ 1,
+  family = "neg_binom", # overdispersion for daily counts
+  i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  cases <- epiobs(
+  formula = cases(county, date) ~ 1,
+  i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
+  family = "neg_binom",
+  prior_intercept = rstanarm::normal(1, 0.5),
+  link = "identity"
+)
+  
+  args$obs <- list(deaths = deaths)
+  
+  args$rt <- epirt(
+  formula = R(county, date) ~ rw(time=week)
+)
+
+  args$pops <- pops
+  
+  args$algorithm <- "sampling"
+  args$pop_adjust <- FALSE
+  args$init_run <- TRUE
+  args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+  
+  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "DE.rds")
+  
+  fit <- do.call("epim", args)
+
+  res <- list(
+    fit = fit,
+    county = groups$county[i],
+    state = "DE"
+  )
+  
+  saveRDS(res, file =  here::here("epidemia_fits", "delaware", filename))
+}
+```
 
