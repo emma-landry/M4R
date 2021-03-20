@@ -6,7 +6,7 @@ library(optparse)
 #options(mc.cores = parallel::detectCores())
 
 job.index <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
-job.id <- as.numeric(Sys.getenv("PBS_JOBID"))
+job.id <- Sys.getenv("PBS_JOBID")
 
 short_state <- c("AL", "AK","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY",
                  "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
