@@ -70,6 +70,8 @@ for (i in (seq (1:N))){
   
   args <- list(data= data_sub, si = EuropeCovid$si)
   
+  inf <- epiinf( gen = EuropeCovid$si) #check prior_tau
+  
   deaths <- epiobs(
     formula = deaths(county, date) ~ 1,
     family = "neg_binom", # overdispersion for daily counts
@@ -98,7 +100,7 @@ for (i in (seq (1:N))){
   args$pop_adjust <- FALSE
   args$init_run <- TRUE
   args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
-  args$inf <- epiinf()
+  args$inf <- inf
   
   filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "PA_",job.id,".rds")
   
