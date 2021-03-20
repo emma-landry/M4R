@@ -5,7 +5,7 @@ library(readr)
 library(optparse)
 #options(mc.cores = parallel::detectCores())
 
-job.index <- as.numeric(Sys.getenv("PBS_ARRAYID"))
+job.index <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 print(job.index)
 job.id <- Sys.getenv("PBS_JOBID")
 
