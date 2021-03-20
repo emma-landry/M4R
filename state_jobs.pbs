@@ -1,0 +1,11 @@
+#!/bin/sh 
+#PBS -l walltime=00:30:00
+#PBS -lselect=1:ncpus=1:mem=4gb
+#PBS -m abe
+#PBS -M evl17@ic.ac.uk
+#PBS -J 1-49
+
+module load anaconda3/personal
+source activate myenvR 
+
+cd $HOME/Msc/M4R

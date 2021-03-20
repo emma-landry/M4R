@@ -29,8 +29,8 @@ cases_all <- read_csv(here("data", "covid","covid_confirmed_usafacts.csv" ))
 
 
 ```{r}
-deaths <- deaths_all[,1:318]
-cases <- cases_all[,1:318]
+deaths <- deaths_all[,1:380]
+cases <- cases_all[,1:380]
 ```
 
 We know use Andrea's code for processing data to be used in epidemia.
@@ -88,7 +88,7 @@ data <- mutate(data,
 ```
 
 ```{r}
-saveRDS(data, file = here("data", "grouped_counties", "california_groups.rds"))
+saveRDS(data, file = here("data", "covid", "prepped_data_Jan21.rds"))
 ```
 
 

@@ -185,5 +185,14 @@ yolo <- readRDS(here::here("epidemia_fits", "california","Yolo_County_CA.rds"))
 plot_rt(yolo$fit)
 ```
 
+```{r}
+plot_infections(yolo$fit)
+```
 
+```{r}
+plot_obs(yolo$fit, type = "deaths")
+```
+```{r}
+
+```
 
