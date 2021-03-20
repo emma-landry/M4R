@@ -98,6 +98,7 @@ for (i in (seq (1:N))){
   args$pop_adjust <- FALSE
   args$init_run <- TRUE
   args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
+  args$inf <- epiinf()
   
   filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "PA_",job.id,".rds")
   
