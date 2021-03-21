@@ -75,7 +75,8 @@ for (i in (seq (1:N))){
   inf <- epiinf( gen = EuropeCovid$si) #check prior_tau
   
   deaths <- epiobs(
-    formula = deaths(county, date) ~ 1,
+    #formula = deaths(county, date) ~ 1,
+    formula = deaths ~ 1,
     family = "neg_binom", # overdispersion for daily counts
     i2o = EuropeCovid$obs$deaths$i2o * 0.01,
     prior_intercept = rstanarm::normal(1, 0.5),
@@ -83,7 +84,8 @@ for (i in (seq (1:N))){
   )
   
   cases <- epiobs(
-    formula = cases(county, date) ~ 1,
+    #formula = cases(county, date) ~ 1,
+    formula = cases ~ 1,
     i2o = c(rep(0, 3), rep(1/7, 7)) * 0.2,
     family = "neg_binom",
     prior_intercept = rstanarm::normal(1, 0.5),
