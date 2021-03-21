@@ -92,7 +92,7 @@ for (i in (seq (1:N))){
     link = "identity"
   )
   
-  args$obs <- list(deaths = deaths)
+  args$obs <- list(deaths = deaths, cases = cases)
   
   args$rt <- epirt(
     formula = R(county, date) ~ rw(time=week)
