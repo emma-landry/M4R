@@ -9,6 +9,8 @@ job.index <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 print(job.index)
 job.id <- Sys.getenv("PBS_JOBID")
 
+
+
 short_state <- c("AL", "AK","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY",
                  "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
                  "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY") 
