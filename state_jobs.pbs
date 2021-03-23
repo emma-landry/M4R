@@ -1,11 +1,11 @@
-#!/bin/sh 
-#PBS -l walltime=00:30:00
+#!/bin/sh
+#PBS -l walltime=01:00:00
 #PBS -lselect=1:ncpus=1:mem=4gb
-#PBS -m abe
-#PBS -M evl17@ic.ac.uk
-#PBS -J 1-49
+
+export PBS_ARRAY_INDEX=8
 
 module load anaconda3/personal
-source activate myenvR 
+source activate epidemia_env
 
-cd $HOME/Msc/M4R
+cd $HOME/Msc/M4R/code
+Rscript county_fit_state.R
