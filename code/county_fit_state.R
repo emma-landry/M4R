@@ -2,7 +2,7 @@ library(epidemia)
 library(dplyr)
 library(here)
 library(readr)
-library(optparse)
+#library(optparse)
 #options(mc.cores = parallel::detectCores())
 
 job.index <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
@@ -24,7 +24,7 @@ long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "color
                 "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "wahsington",
                 "west_virginia","wisconsin", "wyoming")
 
-#job.id <- 38
+
 this.short <- short_state[job.index]
 this.long <- long_state[job.index]
 
