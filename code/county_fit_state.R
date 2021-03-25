@@ -124,6 +124,7 @@ for (i in (seq (1:N))){
   
   wd <- getwd()
   setwd("..")
+  setwd("..")
   parent <- getwd()
   setwd(wd)
   
