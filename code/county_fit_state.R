@@ -10,7 +10,6 @@ print(job.index)
 job.id <- Sys.getenv("PBS_JOBID")
 
 
-
 short_state <- c("AL", "AK","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY",
                  "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
                  "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY") 
@@ -117,7 +116,6 @@ for (i in (seq (1:N))){
   
   fit <- do.call("epim", args)
   
-  
   res <- list(
     fit = fit,
     county = groups$county[i],
@@ -129,7 +127,7 @@ for (i in (seq (1:N))){
   parent <- getwd()
   setwd(wd)
   
-  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits", filename))
+  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/", filename))
 
   
   rt <- posterior_rt(res$fit)
@@ -139,7 +137,7 @@ for (i in (seq (1:N))){
   
   
   filename2 <- paste0(gsub("\\s", "_", groups$county[i]), "_", this.short,"_",job.id,"_medians.rds")
-  write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians", filename2))
+  write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/", filename2))
 }
 
 
