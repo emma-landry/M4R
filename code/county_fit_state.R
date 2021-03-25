@@ -128,7 +128,7 @@ for (i in (seq (1:N))){
   parent <- getwd()
   setwd(wd)
   
-  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/", filename))
+  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/run1/", filename))
 
   
   rt <- posterior_rt(res$fit)
@@ -138,7 +138,7 @@ for (i in (seq (1:N))){
   
   
   filename2 <- paste0(gsub("\\s", "_", groups$county[i]), "_", this.short,"_",job.id,"_medians.rds")
-  write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/", filename2))
+  write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/run1/", filename2))
 }
 
 

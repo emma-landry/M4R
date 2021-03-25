@@ -1,0 +1,35 @@
+---
+title: "Experimenting with HPC fits"
+author: "Emma Landry"
+date: "3/25/2021"
+output: html_document
+---
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+```
+
+```{r}
+here::here()
+```
+
+```{r}
+epi_fit_kent <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/Kent_County_DE_3280335.pbs.rds")
+```
+
+```{r}
+rt_kent <-  read.csv("/Volumes/evl17/home/Msc/Outputs/rt_medians/Kent_County_DE_3280335.pbs_medians.rds")
+```
+
+```{r}
+plot_rt(epi_fit_kent$fit)
+```
+
+
+```{r}
+plot(rt_kent)s
+```
+
