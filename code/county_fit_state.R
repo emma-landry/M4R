@@ -16,11 +16,11 @@ short_state <- c("AL", "AK","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL",
 
 long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut",
                 "delaware", "florida", "georgia", "idaho", "illinois","indiana","iowa", "kansas",
-                "kentucky", "louisiana", "maine", "maryland", "massachussets", "michigan",
-                "minnesota", "mississipi", "missouri","montana", "nebraska", "nevada", "new_hampshire",
+                "kentucky", "louisiana", "maine", "maryland", "massachussetts", "michigan",
+                "minnesota", "mississippi", "missouri","montana", "nebraska", "nevada", "new_hampshire",
                 "new_jersey", "new_mexico", "new_york", "north_carolina", "north_dakota", "ohio",
                 "oklahoma", "oregon", "pennsylvania", "rhode_island", "south_carolina",
-                "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "wahsington",
+                "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington",
                 "west_virginia","wisconsin", "wyoming")
 
 
@@ -35,7 +35,6 @@ data <- readRDS(here::here("data", "covid", "prepped_data_Jan21.rds"))
 state_data <- filter(data, state == this.short)
 
 N <- nrow(groups)
-
 
 for (i in (seq (1:N))){
   
@@ -71,8 +70,6 @@ for (i in (seq (1:N))){
  
   pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
   data_sub$pop<- pops$population
-  
-  data_sub<- select(data_sub, countyFIPS, county, State, date, cases, deaths, week, pop)
   
   #args <- list(data= data_sub, si = EuropeCovid$si)
   args <- list(data=data_sub)
