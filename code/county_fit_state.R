@@ -66,7 +66,7 @@ for (i in (seq (1:N))){
   data_sub <- filter(data_sub, date >= start_date)
   
   data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
-  new_year <- which(data_sub$week <12)
+  new_year <- which(data_sub$week <5)
   data_sub[new_year,]$week <- data_sub[new_year,]$week +53
  
   pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
