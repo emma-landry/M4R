@@ -71,16 +71,22 @@ for (i in (seq (1:N))){
   data_sub[new_year,]$week <- data_sub[new_year,]$week +53
  
   pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
+  data_sub$pop<- pops$population
   
-  args <- list(data= data_sub, si = EuropeCovid$si)
+  data_sub<- select(data_sub, countyFIPS, county, State, date, cases, deaths, week, pop)
   
-  inf <- epiinf( gen = EuropeCovid$si) #check prior_tau
+  #args <- list(data= data_sub, si = EuropeCovid$si)
+  args <- list(data=data_sub)
+  
+  inf <- epiinf( gen = EuropeCovid$si,
+                 pop_adjust = FALSE,
+                 susceptibles = pop) #check prior_tau
   
   deaths <- epiobs(
     #formula = deaths(county, date) ~ 1,
     formula = deaths ~ 1,
     family = "neg_binom", # overdispersion for daily counts
-    i2o = EuropeCovid$obs$deaths$i2o * 0.01,
+    i2o = EuropeCovid$inf2death,
     prior_intercept = rstanarm::normal(1, 0.5),
     link = "identity"
   )
@@ -100,15 +106,14 @@ for (i in (seq (1:N))){
     formula = R(county, date) ~ rw(time=week)
   )
   
-  args$pops <- pops
-  
   args$algorithm <- "sampling"
-  args$pop_adjust <- FALSE
   args$init_run <- TRUE
-  args$sampling_args <- list(iter = 1e3, seed=12345, chains = 1)
   args$inf <- inf
+  args$iter <- 1e3
+  args$chains <- 1
+  args$seed <- 12345
   
-  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", "PA_",job.id,".rds")
+  filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", this.short,"_",job.id,".rds")
   
   fit <- do.call("epim", args)
   
@@ -133,7 +138,7 @@ for (i in (seq (1:N))){
   rt_df <- data.frame("Date"= rt$time, "Rt_medians"= rt_medians)
   
   
-  filename2 <- paste0(gsub("\\s", "_", groups$county[i]), "_", "PA_",job.id,"_medians.rds")
+  filename2 <- paste0(gsub("\\s", "_", groups$county[i]), "_", this.short,"_",job.id,"_medians.rds")
   write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians", filename2))
 }
 

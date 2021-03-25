@@ -28,7 +28,7 @@ args$algorithm <- "fullrank"
 args$iter <- 1e4
 args$tol_rel_obj <- 1e-3
 
-args$algorithm <- "sampling"
-args$chains <- 0
+#args$algorithm <- "sampling"
+#args$chains <- 0
 
 fm <- do.call(epim, args)
