@@ -71,8 +71,7 @@ for (i in (seq (1:N))){
   pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
   data_sub$pop<- pops$population
   
-  args <- list(data= data_sub, si = EuropeCovid$si)
-  #args <- list(data=data_sub)
+  args <- list(data=data_sub)
   
   inf <- epiinf( gen = EuropeCovid$si,
                  pop_adjust = FALSE,
