@@ -16,7 +16,7 @@ short_state <- c("AL", "AK","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL",
 
 long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut",
                 "delaware", "florida", "georgia", "idaho", "illinois","indiana","iowa", "kansas",
-                "kentucky", "louisiana", "maine", "maryland", "massachussetts", "michigan",
+                "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan",
                 "minnesota", "mississippi", "missouri","montana", "nebraska", "nevada", "new_hampshire",
                 "new_jersey", "new_mexico", "new_york", "north_carolina", "north_dakota", "ohio",
                 "oklahoma", "oregon", "pennsylvania", "rhode_island", "south_carolina",
@@ -71,8 +71,8 @@ for (i in (seq (1:N))){
   pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
   data_sub$pop<- pops$population
   
-  #args <- list(data= data_sub, si = EuropeCovid$si)
-  args <- list(data=data_sub)
+  args <- list(data= data_sub, si = EuropeCovid$si)
+  #args <- list(data=data_sub)
   
   inf <- epiinf( gen = EuropeCovid$si,
                  pop_adjust = FALSE,
@@ -82,7 +82,7 @@ for (i in (seq (1:N))){
     #formula = deaths(county, date) ~ 1,
     formula = deaths ~ 1,
     family = "neg_binom", # overdispersion for daily counts
-    i2o = EuropeCovid$inf2death,
+    i2o = EuropeCovid$inf2death*0.01,
     prior_intercept = rstanarm::normal(1, 0.5),
     link = "identity"
   )
@@ -97,6 +97,7 @@ for (i in (seq (1:N))){
   )
   
   args$obs <- list(deaths = deaths, cases = cases)
+  args$obs <- deaths
   
   args$rt <- epirt(
     formula = R(county, date) ~ rw(time=week)

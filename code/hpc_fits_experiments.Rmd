@@ -30,6 +30,14 @@ plot_rt(epi_fit_kent$fit)
 
 
 ```{r}
-plot(rt_kent)s
+fit_ak <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run1/Anchorage_Municipality_AK_3281739[2].pbs.rds")
+```
+
+```{r}
+plot_rt(fit_ak$fit)
+```
+```{r}
+alameda_fit <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run1/Alameda_County_CA_3281739[5].pbs.rds")
+plot_rt(alameda_fit$fit)
 ```
 
