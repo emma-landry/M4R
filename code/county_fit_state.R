@@ -82,7 +82,7 @@ for (i in (seq (1:N))){
     #formula = deaths(county, date) ~ 1,
     formula = deaths ~ 1,
     family = "neg_binom", # overdispersion for daily counts
-    i2o = EuropeCovid$inf2death*0.01,
+    i2o = EuropeCovid$inf2death,
     prior_intercept = rstanarm::normal(1, 0.5),
     link = "identity"
   )
@@ -97,7 +97,7 @@ for (i in (seq (1:N))){
   )
   
   args$obs <- list(deaths = deaths, cases = cases)
-  args$obs <- deaths
+  #args$obs <- deaths
   
   args$rt <- epirt(
     formula = R(county, date) ~ rw(time=week)
