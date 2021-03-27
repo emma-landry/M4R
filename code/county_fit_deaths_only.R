@@ -3,6 +3,9 @@ library(dplyr)
 library(here)
 library(readr)
 
+options(mc.cores = parallel::detectCores())
+options(mc.cores = 4)
+
 job.index <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 print(job.index)
 job.id <- Sys.getenv("PBS_JOBID")
@@ -95,7 +98,7 @@ for (i in (seq (1:N))){
   args$init_run <- TRUE
   args$inf <- inf
   args$iter <- 1e3
-  args$chains <- 1
+  args$chains <- 4
   args$seed <- 12345
   
   filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", this.short,"_",job.id,".rds")
