@@ -97,7 +97,7 @@ for (i in (seq (1:N))){
   args$algorithm <- "sampling"
   args$init_run <- TRUE
   args$inf <- inf
-  args$iter <- 1e3
+  args$iter <- 2.5e3
   args$chains <- 4
   args$seed <- 12345
   
@@ -117,7 +117,7 @@ for (i in (seq (1:N))){
   parent <- getwd()
   setwd(wd)
   
-  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/run3/", filename))
+  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/run4/", filename))
   
   
   rt <- posterior_rt(res$fit)
@@ -127,7 +127,7 @@ for (i in (seq (1:N))){
   
   
   filename2 <- paste0(gsub("\\s", "_", groups$county[i]), "_", this.short,"_",job.id,"_medians.rds")
-  write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/run3/", filename2))
+  write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/run4/", filename2))
 }
 
 
