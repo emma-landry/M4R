@@ -36,8 +36,43 @@ fit_ak <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run1/Anchorage_
 ```{r}
 plot_rt(fit_ak$fit)
 ```
+
 ```{r}
 alameda_fit <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run1/Alameda_County_CA_3281739[5].pbs.rds")
 plot_rt(alameda_fit$fit)
+```
+(all Alameda)
+
+Fit (deaths + cases):
+```{r}
+plot_rt(fit)
+```
+
+```{r}
+plot_rt(fit2)
+```
+
+
+```{r}
+rt <- posterior_rt(fit)
+draws <- rt$draws
+rt_meds <- apply(draws,2, median)
+plot(rt_meds)
+```
+
+```{r}
+rt2 <- posterior_rt(fit2)
+draws2 <- rt2$draws
+rt_meds2 <- apply(draws2,2, median)
+plot(rt_meds2)
+```
+```{r}
+plot_infections(fit)
+plot_infections(fit2)
+```
+
+```{r}
+plot_obs(fit, type = "deaths")
+plot_obs(fit2, type = "deaths")
 ```
 

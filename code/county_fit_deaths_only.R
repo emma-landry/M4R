@@ -82,7 +82,7 @@ for (i in (seq (1:N))){
     #formula = deaths(county, date) ~ 1,
     formula = deaths ~ 1,
     family = "neg_binom", # overdispersion for daily counts
-    i2o = EuropeCovid$inf2death*0.01,
+    i2o = EuropeCovid$inf2death,
     prior_intercept = rstanarm::normal(1, 0.5),
     link = "identity"
   )
@@ -117,7 +117,7 @@ for (i in (seq (1:N))){
   parent <- getwd()
   setwd(wd)
   
-  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/run4/", filename))
+  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/run5/", filename))
   
   
   rt <- posterior_rt(res$fit)
@@ -127,7 +127,7 @@ for (i in (seq (1:N))){
   
   
   filename2 <- paste0(gsub("\\s", "_", groups$county[i]), "_", this.short,"_",job.id,"_medians.rds")
-  write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/run4/", filename2))
+  write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/run5/", filename2))
 }
 
 
