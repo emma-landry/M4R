@@ -47,7 +47,7 @@ for (i in (seq (1:N))){
   }else{
     data_sub <- filter(state_data, countyFIPS %in% fips)
     tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum, na.action = NULL)
-    data_sub <- data_sub[1:376,]
+    data_sub <- data_sub[1:435,]
     data_sub <- subset(data_sub, select = -c(countyFIPS, date,cases, deaths, state))
     data_sub <- cbind(data_sub, tmp)
     n <- nrow (data_sub)
@@ -66,8 +66,8 @@ for (i in (seq (1:N))){
   data_sub <- filter(data_sub, date >= start_date)
   
   data_sub <- mutate(data_sub, week = as.integer(format(date, "%V")))
-  new_year <- which(data_sub$week <5)
-  data_sub[new_year,]$week <- data_sub[new_year,]$week +53
+  new_year <- min(which(data_sub$week ==1))
+  data_sub[new_year:nrow(data_sub),]$week <- data_sub[new_year:nrow(data_sub),]$week +53
   
   pops <- data.frame("county" = groups$county[i], "population"= groups$population[i])
   data_sub$pop<- pops$population

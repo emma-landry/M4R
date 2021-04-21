@@ -9,22 +9,91 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+library(here)
+library(dplyr)
+library(tidyr)
+library(readr)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+here::here()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+deaths_all <- read_csv(here::here("data", "covid", "covid_deaths_usafacts.csv"))
+
+cases_all <- read_csv(here::here("data", "covid","covid_confirmed_usafacts.csv" ))
+```
+
+
+```{r}
+deaths <- deaths_all[,1:439]
+cases <- cases_all[,1:439]
+```
+
+
+We know use Andrea's code for processing data to be used in epidemia.
+
+Processing cases and deaths data
+```{r}
+cases <- pivot_longer(
+  cases, 
+  cols = contains("-"), 
+  names_to = "date", 
+  values_to = "cases"
+)
+```
+
+```{r}
+deaths <- pivot_longer(
+  deaths, 
+  cols = contains("-"), 
+  names_to = "date", 
+  values_to = "deaths"
+)
+```
+
+Joining the datasets by FIPS
+```{r}
+deaths <- select(deaths, countyFIPS, StateFIPS, date, deaths)
+data <- left_join(cases, deaths)
+```
+
+Remove "Statewide Unallocated"
+```{r}
+data <- filter(data,
+               `County Name` != "Statewide Unallocated"
+)
+```
+
+
+```{r}
+data <- data %>% 
+  rename(county = `County Name`) %>%
+  group_by(county) %>% 
+  mutate(
+    cases =  diff(c(0, cases)), 
+    deaths = diff(c(0, deaths))
+  )
+```
+
+```{r}
+data <- mutate(data,
+               date = as.Date(date),
+               state = State,
+               cases = replace(cases, cases < 0, NA),
+               deaths = replace(deaths, deaths < 0, NA)
+)
+```
+
+
+```{r}
+data_state <- aggregate(data[,6:7], by = list(data$State, data$date), FUN = sum, na.rm= TRUE)
+colnames(data_state)<- c("State", "date", "cases", "deaths")
+```
+
+```{r}
+saveRDS(data_state, file = here("data", "covid", "prepped_data_state.rds"))
+```
+

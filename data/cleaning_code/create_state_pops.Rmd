@@ -1,0 +1,39 @@
+---
+title: "Population df"
+author: "Emma Landry"
+date: "4/21/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(here)
+library(readxl)
+library(tidyr)
+library(zoo)
+library(stringr)
+```
+
+```{r}
+here::here()
+```
+
+
+```{r}
+pop<- read_excel(here("data","covid", "nst-est2019-01.xlsx"))
+pop <- pop[9:59,]
+pop <- pop[,c(1,13)]
+colnames(pop) <- c("State", "Population")
+pop$State<- sub('.', '', pop$State)
+pop <- pop[-c(9,12),]
+pop$State<- sub(' ', '_', pop$State)
+pop$State<- tolower(pop$State)
+```
+
+```{r}
+saveRDS(pop, file = here("data", "covid", "state_populations.rds"))
+```
+
