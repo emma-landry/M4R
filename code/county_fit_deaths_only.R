@@ -31,7 +31,7 @@ this.long <- long_state[job.index]
 group.file.name<- paste0(this.long, "_groups.rds")
 
 groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
-data <- readRDS(here::here("data", "covid", "prepped_data_Jan21.rds"))
+data <- readRDS(here::here("data", "covid", "prepped_data_Mar21.rds"))
 
 state_data <- filter(data, state == this.short)
 
@@ -117,7 +117,7 @@ for (i in (seq (1:N))){
   parent <- getwd()
   setwd(wd)
   
-  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/run5/", filename))
+  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/run6/", filename))
   
   
   rt <- posterior_rt(res$fit)
@@ -127,7 +127,7 @@ for (i in (seq (1:N))){
   
   
   filename2 <- paste0(gsub("\\s", "_", groups$county[i]), "_", this.short,"_",job.id,"_medians.rds")
-  write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/run5/", filename2))
+  write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/run6/", filename2))
 }
 
 

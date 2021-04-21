@@ -1,0 +1,109 @@
+---
+title: "Vaccination"
+author: "Emma Landry"
+date: "4/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(here)
+library(dplyr)
+library(stringr)
+library(readxl)
+library(rstanarm)
+library(lme4)
+```
+
+```{r}
+pop_pct <- readRDS(here::here("data", "vaccination", "population_characteristics.RDS"))
+```
+
+M:0, F:1
+18-25: 0, 26-40: 1 41-60: 2, 60+ :3
+white: 0, black : 1, Asian: 2, multiracial: 3, other :4
+hispanic: 0, nh: 1
+high school: 0, some college: 1, bachelor or more: 2
+rural: 0, urban: 1
+northeast: 0, midwest: 1, south: 2, west: 3
+
+Start with the ones saying likely
+```{r}
+set.seed(12345)
+m_f.l <- sample(c(rep(0,709), rep(1,758)))
+age.l <- sample(c(rep(0,271), rep(1,645), rep(2,401), rep(3,150)))
+race.l <- sample(c(rep(0,1083), rep(1,142), rep(2,159), rep (3,36), rep(4,47)))
+eth.l <- sample(c(rep(0,255), rep(1,1212)))
+edu.l<- sample(c(rep(0,72), rep(1,234), rep(2, 1161)))
+urb.l <- sample(c(rep(0,292), rep(1,1175)))
+reg.l <- sample(c(rep(0,184), rep(1,525), rep(2,434), rep(3,324)))
+```
+
+Now the ones saying unlikely
+```{r}
+set.seed(12345)
+m_f.u <- sample(c(rep(0,201), rep(1,210)))
+age.u <- sample(c(rep(0,78), rep(1,184), rep(2,124),rep(3,25)))
+race.u <- sample(c(rep(0,301),rep(1,72), rep(2,20),rep(3,7), rep(4,11)))
+eth.u <- sample(c(rep(0,102), rep(1,309)))
+edu.u <- sample(c(rep(0,32), rep(1,81), rep(2, 298)))
+urb.u <- sample(c(rep(0,117), rep(1,294)))
+reg.u <- sample(c(rep(0,60), rep(1,114), rep(2,132), rep(3,105)))
+```
+
+
+```{r}
+m_f<- c(m_f.l, m_f.u)
+age <- c(age.l, age.u)
+race <- c(race.l, race.u)
+eth <- c(eth.l, eth.u)
+edu <- c(edu.l, edu.u)
+urb <- c(urb.l, urb.u)
+reg <- c(urb.l, urb.u)
+response <- c(rep(1,1467),rep(0,411))
+
+
+sample_df <- data.frame("Sex"= m_f, "Age"= age, "Race"= race, "Ethnicity"= eth, "Education"= edu, "Area"= urb, "Region"= reg, "Response"= response)
+```
+
+```{r}
+set.seed(12345)
+rows <- sample(nrow(sample_df))
+sample_df <- sample_df[rows,]
+```
+
+```{r}
+fit <- stan_glmer(response ~ (1|Sex)+ (1|Age)+ (1|Race)+ (1|Ethnicity)+ (1|Education)+ (1|Area)+ factor(Region),
+                  family = binomial(link=logit),
+                  data = sample_df,
+                  prior = normal(0,1, autoscale = TRUE),
+                  prior_covariance =  decov(scale = 0.5),
+                  adapt_delta = 0.99,
+                  refresh = 0,
+                  seed = 12345)
+
+```
+
+```{r}
+print(fit)
+```
+
+```{r}
+fit2 <- stan_glmer(response ~ (1|Sex)+ (1|Age)+ (1|Race)+ (1|Ethnicity)+ (1|Education)+ (1|Area)+ Region,
+                  family = binomial(link=logit),
+                  data = sample_df,
+                  prior = normal(0,1, autoscale = TRUE),
+                  prior_covariance =  decov(scale = 0.5),
+                  adapt_delta = 0.99,
+                  refresh = 0,
+                  seed = 12345)
+```
+
+```{r}
+fit2
+```
+
+

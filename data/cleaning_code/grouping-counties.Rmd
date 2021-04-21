@@ -67,9 +67,11 @@ Fixing Alaska:
 ```{r}
 index <- adj$county_fips == 2270
 adj$county[index] <- "Kusilvak Census Area"
+adj$county_fips[index] <- 2158
 
 index <- adj$neighbor_fips ==2270
 adj$neighbor_county[index] <- "Kusilvak Census Area"
+adj$neighbor_fips[index] <- 2158
 
 index<- adj$county_fips== 2195
 adj$county[index] <- "Petersburg Borough"
@@ -107,9 +109,11 @@ South Dakota:
 ```{r}
 index <- adj$county_fips== 46113
 adj$county[index] <- "Oglala Lakota County"
+adj$county_fips[index] <- 46102
 
 index <- adj$neighbor_fips== 46113
 adj$neighbor_county[index] <- "Oglala Lakota County"
+adj$neighbor_fips[index] <- 46102
 ```
 
 
@@ -350,6 +354,18 @@ saveRDS(california_groups, here("data", "grouped_counties", "california_groups.r
 pennsyvalnia_groups <- do_groups("Pennsylvania", "PA", 150000)
 pennsyvalnia_groups <- unique(subset(pennsyvalnia_groups, select= -c(neighbor_county, neighbor_fips,neighbor_population)))
 saveRDS(pennsyvalnia_groups, here("data", "grouped_counties", "pennsylvania_groups.rds"))
+```
+
+```{r}
+alaska_groups <- do_groups("Alaska", "AK", 150000)
+alaska_groups <- unique(subset(alaska_groups, select= -c(neighbor_county, neighbor_fips,neighbor_population)))
+saveRDS(alaska_groups, here("data", "grouped_counties", "alaska_groups.rds"))
+```
+
+```{r}
+south_dakota_groups <- do_groups("South Dakota", "SD", 150000)
+south_dakota_groups <- unique(subset(south_dakota_groups, select= -c(neighbor_county, neighbor_fips,neighbor_population)))
+saveRDS(south_dakota_groups, here("data", "grouped_counties", "south_dakota_groups.rds"))
 ```
 
 

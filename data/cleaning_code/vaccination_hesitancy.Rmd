@@ -1,0 +1,326 @@
+---
+title: "vaccination_hesitancy"
+author: "Emma Landry"
+date: "4/8/2021"
+output: html_document
+---
+
+```{r}
+library(here)
+library(dplyr)
+library(stringr)
+library(readxl)
+```
+
+```{r}
+char <- read.csv(here::here("data", "vaccination", "cc-est2019-alldata.csv"))
+char <- subset(char, YEAR == "12")
+```
+
+Consider pop totals, in 2019
+```{r}
+pop_characteristics <- subset(char, AGEGRP == "0")
+pop_characteristics <- subset( pop_characteristics, select = - c(SUMLEV, YEAR, AGEGRP))
+
+#remove unneccessary columns
+pop_characteristics <- pop_characteristics[-c(20:29)]
+pop_characteristics <- pop_characteristics[-c(22:43)]
+pop_characteristics <- pop_characteristics[-c(24:45)]
+```
+
+Adult population (over 20)
+```{r}
+pop_characteristics <- subset(char, AGEGRP != "0" & AGEGRP != "1" & AGEGRP != "2"& AGEGRP != "3"& AGEGRP != "4")  # remove less than 20
+pop_characteristics <- aggregate(pop_characteristics[8:80], by = pop_characteristics[2:5] ,FUN = sum) #sum up
+
+pop_characteristics<- pop_characteristics[
+  with(pop_characteristics, order(STATE, COUNTY)),
+]
+#reorder back to norm
+
+pop_characteristics[,5:77] <- pop_characteristics[,5:77] + floor(subset(char,  AGEGRP == "4")[,8:80]/2) #add hakf of the 15-19 group
+
+#remove useless columns
+pop_characteristics <- pop_characteristics[-c(20:29)]
+pop_characteristics <- pop_characteristics[-c(22:43)]
+pop_characteristics <- pop_characteristics[-c(24:45)]
+```
+
+
+```{r}
+pop_characteristics ["WHITE"] <- pop_characteristics["WA_MALE"] +  pop_characteristics["WA_FEMALE"] 
+pop_characteristics <- subset( pop_characteristics, select = - c(WA_MALE, WA_FEMALE))
+pop_characteristics ["BLACK"] <- pop_characteristics["BA_MALE"] +  pop_characteristics["BA_FEMALE"] 
+pop_characteristics <- subset( pop_characteristics, select = - c(BA_MALE, BA_FEMALE))
+pop_characteristics ["ASIAN"] <- pop_characteristics["AA_MALE"] +  pop_characteristics["AA_FEMALE"] 
+pop_characteristics <- subset( pop_characteristics, select = - c(AA_MALE, AA_FEMALE))
+pop_characteristics ["MULTIRACIAL"] <- pop_characteristics["TOM_MALE"] +  pop_characteristics["TOM_FEMALE"]
+pop_characteristics <- subset( pop_characteristics, select = - c(TOM_MALE, TOM_FEMALE))
+pop_characteristics ["OTHER"] <- pop_characteristics["IA_MALE"] +  pop_characteristics["IA_FEMALE"]+pop_characteristics["NA_MALE"] +  pop_characteristics["NA_FEMALE"]
+pop_characteristics <- subset( pop_characteristics, select = - c(IA_MALE, IA_FEMALE,NA_MALE, NA_FEMALE ))
+pop_characteristics ["HISPANIC"] <- pop_characteristics["H_MALE"] +  pop_characteristics["H_FEMALE"]
+pop_characteristics <- subset( pop_characteristics, select = - c(H_MALE, H_FEMALE))
+pop_characteristics ["NONHISPANIC"] <- pop_characteristics["NH_MALE"] +  pop_characteristics["NH_FEMALE"]
+pop_characteristics <- subset( pop_characteristics, select = - c(NH_MALE, NH_FEMALE))
+```
+
+age groups (slightly different but should be fine)
+(15-19)/2 - 24 for 18-25
+25- 39 for 26-40
+40-59 for 41 -60
+60+ instead of 61+
+
+```{r}
+pop_characteristics["AGE25"] <- floor(subset(char, AGEGRP == "4")["TOT_POP"]/2) +subset(char, AGEGRP == "5")["TOT_POP"]
+pop_characteristics["AGE40"] <- subset(char, AGEGRP == "6")["TOT_POP"]+subset(char, AGEGRP == "7")["TOT_POP"]+subset(char, AGEGRP == "8")["TOT_POP"]
+pop_characteristics["AGE60"] <- subset(char, AGEGRP == "9")["TOT_POP"]+subset(char, AGEGRP == "10")["TOT_POP"]+subset(char, AGEGRP == "11")["TOT_POP"] + subset(char, AGEGRP == "12")["TOT_POP"] 
+pop_characteristics["AGEPLUS"] <- subset(char, AGEGRP == "13")["TOT_POP"]+subset(char, AGEGRP == "14")["TOT_POP"]+subset(char, AGEGRP == "15")["TOT_POP"] + subset(char, AGEGRP == "16")["TOT_POP"]+ subset(char, AGEGRP == "17")["TOT_POP"] + subset(char, AGEGRP == "18")["TOT_POP"] 
+```
+
+
+```{r}
+pop_characteristics <-
+    pop_characteristics%>%
+    mutate(STATE = str_pad(STATE, 2, side = 'left', pad = '0'))
+pop_characteristics <-
+    pop_characteristics%>%
+    mutate(COUNTY = str_pad(COUNTY, 3, side = 'left', pad = '0'))
+pop_characteristics <- within(pop_characteristics, FIPS <- paste(STATE,COUNTY,sep=''))
+```
+
+```{r}
+pop_characteristics <- pop_characteristics %>%
+  select(FIPS, everything())
+pop_characteristics<- subset(pop_characteristics, STNAME != "District of Columbia" & STNAME != "Hawaii")
+```
+
+
+Now move on to education (note it is 2015-2019)
+```{r}
+edu <- read_excel(here::here("data", "vaccination", "Education.xls"))
+edu <- edu[!is.na(edu$`2003 Rural-urban Continuum Code`),]
+
+edu <- subset(edu, State != "PR" & State != "HI" & State != "DC")
+
+edu <- subset(edu, `FIPS Code` != "30113" & `FIPS Code` != "51515" & `FIPS Code` != "51560")
+edu <- subset(edu , State != "AK")
+pop_characteristics <- subset(pop_characteristics, STNAME != "Alaska")
+
+edu <- edu[-c(4:43)]
+```
+
+```{r}
+short_state <- c("AL","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY",
+                 "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
+                 "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY") 
+
+long_state <- c("alabama", "arizona", "arkansas", "california", "colorado", "connecticut",
+                "delaware", "florida", "georgia", "idaho", "illinois","indiana","iowa", "kansas",
+                "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan",
+                "minnesota", "mississippi", "missouri","montana", "nebraska", "nevada", "new_hampshire",
+                "new_jersey", "new_mexico", "new_york", "north_carolina", "north_dakota", "ohio",
+                "oklahoma", "oregon", "pennsylvania", "rhode_island", "south_carolina",
+                "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington",
+                "west_virginia","wisconsin", "wyoming")
+```
+
+```{r}
+for (i in (seq (1:48))){
+  sn <- short_state[i]
+  ln <-str_to_title(sub("_", " ", long_state[i]))
+  print(ln)
+  print(nrow(subset(edu,State == sn)))
+  print(nrow(subset(pop_characteristics, STNAME == ln)))
+   print(length(sort(unique(subset(edu,State == sn)$`FIPS Code`))== sort(unique(subset(pop_characteristics, STNAME == ln)$FIPS))))
+}
+```
+
+
+EDU0 <= HS
+EDU1 some college edu
+EDU2 bachelor or more
+
+```{r}
+temp_edu <- data.frame(FIPS = edu$`FIPS Code`, EDU0 = edu$`Percent of adults with less than a high school diploma, 2015-19`+edu$`Percent of adults with a high school diploma only, 2015-19`, EDU1 = edu$`Percent of adults completing some college or associate's degree, 2015-19`, EDU2 = edu$`Percent of adults with a bachelor's degree or higher, 2015-19`)
+```
+
+
+```{r}
+pop_characteristics <- left_join(pop_characteristics, temp_edu, by = "FIPS")
+pop_characteristics$EDU0 <- round(pop_characteristics$TOT_POP*pop_characteristics$EDU0/100, digits = 0)
+pop_characteristics$EDU1 <- round(pop_characteristics$TOT_POP*pop_characteristics$EDU1/100, digits = 0)
+pop_characteristics$EDU2 <- round(pop_characteristics$TOT_POP*pop_characteristics$EDU2/100, digits = 0)
+```
+
+
+```{r}
+west <- c("Washington", "Oregon", "California", "Nevada", "Arizona", "New Mexico", "Colorado", "Utah", "Wyoming", "Idaho", "Montana")
+
+south <- c("Texas", "Oklahoma", "Louisiana", "Arkansas", "Missouri", "Tennessee", "Alabama", "Georgia","Florida", "South Carolina", "North Carolina", "Kentucky", "West Virginia", "Virginia", "Maryland", "Delaware")
+
+midwest <- c("Indiana", "Illinois", "Michigan", "Ohio", "Wisconsin", "Iowa", "Kansas", "Minnesota", "Missouri", "Nebraska", "North Dakota", "South Dakota")
+
+northeast <- c("Connecticut", "Maine", "Massachusetts", "New Hampshire", "Rhode Island", "Vermont", "New Jersey", "New York", "Pennsylvania")
+```
+
+```{r}
+pop_characteristics$WEST <- 0
+pop_characteristics$MIDWEST <- 0
+pop_characteristics$SOUTH <- 0
+pop_characteristics$NORTHEAST <- 0
+```
+
+```{r}
+index <- pop_characteristics$STNAME %in% west
+pop_characteristics$WEST[index] <- 1
+pop_characteristics$WEST <- pop_characteristics$WEST* pop_characteristics$TOT_POP
+
+index <- pop_characteristics$STNAME %in% midwest
+pop_characteristics$MIDWEST[index] <- 1
+pop_characteristics$MIDWEST <- pop_characteristics$MIDWEST* pop_characteristics$TOT_POP
+
+index <- pop_characteristics$STNAME %in% south
+pop_characteristics$SOUTH[index] <- 1
+pop_characteristics$SOUTH <- pop_characteristics$SOUTH* pop_characteristics$TOT_POP
+
+index <- pop_characteristics$STNAME %in% northeast
+pop_characteristics$NORTHEAST[index] <- 1
+pop_characteristics$NORTHEAST <- pop_characteristics$NORTHEAST* pop_characteristics$TOT_POP
+```
+
+Rural- urban from 2010
+consider suburban as urban (since data is split into rural and urban)
+assume urbanization rates more or less the same across the counties (not good assumption)
+```{r}
+urb <- read_excel(here::here("data", "vaccination", "PctUrbanRural_County.xls"))
+urb <- urb[-c(5:7,9:12,14:17, 19:22, 24:26)]
+
+urb <- subset(urb, STATENAME != "Puerto Rico" & STATENAME != "District of Columbia" & STATENAME != "Alaska" & STATENAME != "Hawaii")
+
+urb <- within(urb, FIPS <- paste(STATE,COUNTY,sep=''))
+urb <- urb %>%
+  select(FIPS, everything())
+
+urb <- subset(urb, FIPS != 51515)
+```
+
+
+```{r}
+for (i in (seq (1:48))){
+  ln <-str_to_title(sub("_", " ", long_state[i]))
+  print(ln)
+  print(nrow(subset(urb,STATENAME == ln)))
+  print(nrow(subset(pop_characteristics, STNAME == ln)))
+   print(length(sort(unique(subset(urb,STATENAME == ln)$FIPS))== sort(unique(subset(pop_characteristics, STNAME == ln)$FIPS))))
+}
+```
+
+
+```{r}
+pop_characteristics <- left_join(pop_characteristics, urb %>% select(FIPS, POPPCT_URBAN, POPPCT_RURAL))
+pop_characteristics$URBAN <- round(pop_characteristics$TOT_POP*pop_characteristics$POPPCT_URBAN, digits = 0)
+pop_characteristics$RURAL <- round(pop_characteristics$TOT_POP*pop_characteristics$POPPCT_RURAL, digits = 0)
+pop_characteristics<- pop_characteristics[-c(27:28)]
+```
+
+Now need to make the groups
+Start with Alabama, and then will do loop for all
+```{r}
+ala_gp <- readRDS(here::here("data", "grouped_counties", "alabama_groups.rds"))
+N <- nrow(ala_gp)
+```
+
+Our grouping counties code uses old fips for oglala, we use that one here too
+```{r}
+index <- pop_characteristics$FIPS==46102
+pop_characteristics$FIPS[index]<- 46113
+```
+
+```{r}
+for (j in (seq(1:48))){
+  this.long <- long_state[j]
+  group.file.name <- paste0(this.long, "_groups.rds")
+  groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
+  N<- nrow(groups)
+  for (i in (seq (1:N))){
+    
+    #Obtaining the data
+    fips <- unlist(groups$county_fips[i])
+    fips <- str_pad(fips, 5, pad = "0")
+    
+    if (length(fips)==1){
+      next
+    }else{
+      data_sub <- filter(pop_characteristics, FIPS %in% fips)
+      data_sub <- aggregate(data_sub[6:28], by = data_sub[c(2,4)], FUN = sum)
+      
+      index <- pop_characteristics$FIPS %in% fips
+      min_ind <- which(index>0)[1]
+      pop_characteristics[min_ind,6:28] <- data_sub[3:25]
+      pop_characteristics$CTYNAME[min_ind] <- groups$county[i]
+      fips_leave <- pop_characteristics$FIPS[min_ind]
+      fips <- fips[fips != fips_leave]
+      pop_characteristics <- subset(pop_characteristics, !(FIPS%in%fips) )
+    }
+  }
+}
+```
+
+```{r}
+states <- unique(pop_characteristics$STNAME)
+for (i in (seq(1:48))){
+  print(states[i])
+  print(nrow(subset(pop_characteristics, STNAME==states[i])))
+}
+```
+
+Now create a data frame with percentages:
+```{r}
+pop_pct <- pop_characteristics
+
+#MALE/ FEMALE
+pop_pct$TOT_MALE<- pop_characteristics$TOT_MALE/(pop_characteristics$TOT_MALE+pop_characteristics$TOT_FEMALE)
+pop_pct<- rename(pop_pct, MALE = TOT_MALE)
+pop_pct$TOT_FEMALE<- pop_characteristics$TOT_FEMALE/(pop_characteristics$TOT_MALE+pop_characteristics$TOT_FEMALE)
+pop_pct<- rename(pop_pct, FEMALE = TOT_FEMALE)
+
+#ETHNICITY
+pop_pct$WHITE<- pop_characteristics$WHITE/(pop_characteristics$WHITE+pop_characteristics$BLACK+pop_characteristics$ASIAN+pop_characteristics$MULTIRACIAL+pop_characteristics$OTHER)
+pop_pct$BLACK<- pop_characteristics$BLACK/(pop_characteristics$WHITE+pop_characteristics$BLACK+pop_characteristics$ASIAN+pop_characteristics$MULTIRACIAL+pop_characteristics$OTHER)
+pop_pct$ASIAN<- pop_characteristics$ASIAN/(pop_characteristics$WHITE+pop_characteristics$BLACK+pop_characteristics$ASIAN+pop_characteristics$MULTIRACIAL+pop_characteristics$OTHER)
+pop_pct$MULTIRACIAL<- pop_characteristics$MULTIRACIAL/(pop_characteristics$WHITE+pop_characteristics$BLACK+pop_characteristics$ASIAN+pop_characteristics$MULTIRACIAL+pop_characteristics$OTHER)
+pop_pct$OTHER<- pop_characteristics$OTHER/(pop_characteristics$WHITE+pop_characteristics$BLACK+pop_characteristics$ASIAN+pop_characteristics$MULTIRACIAL+pop_characteristics$OTHER)
+
+#HISPANIC
+pop_pct$HISPANIC <- pop_characteristics$HISPANIC/(pop_characteristics$HISPANIC+pop_characteristics$NONHISPANIC)
+pop_pct$NONHISPANIC <- pop_characteristics$NONHISPANIC/(pop_characteristics$HISPANIC+pop_characteristics$NONHISPANIC)
+
+#AGE
+pop_pct$AGE25 <- pop_characteristics$AGE25/(pop_characteristics$AGE25+pop_characteristics$AGE40+pop_characteristics$AGE60+pop_characteristics$AGEPLUS)
+pop_pct$AGE40 <- pop_characteristics$AGE40/(pop_characteristics$AGE25+pop_characteristics$AGE40+pop_characteristics$AGE60+pop_characteristics$AGEPLUS)
+pop_pct$AGE60 <- pop_characteristics$AGE60/(pop_characteristics$AGE25+pop_characteristics$AGE40+pop_characteristics$AGE60+pop_characteristics$AGEPLUS)
+pop_pct$AGEPLUS <- pop_characteristics$AGEPLUS/(pop_characteristics$AGE25+pop_characteristics$AGE40+pop_characteristics$AGE60+pop_characteristics$AGEPLUS)
+
+#EDUCATION
+pop_pct$EDU0 <- pop_characteristics$EDU0/(pop_characteristics$EDU0+pop_characteristics$EDU1+pop_characteristics$EDU2)
+pop_pct$EDU1 <- pop_characteristics$EDU1/(pop_characteristics$EDU0+pop_characteristics$EDU1+pop_characteristics$EDU2)
+pop_pct$EDU2 <- pop_characteristics$EDU2/(pop_characteristics$EDU0+pop_characteristics$EDU1+pop_characteristics$EDU2)
+
+#REGION
+pop_pct$WEST <- pop_characteristics$WEST/(pop_characteristics$MIDWEST+pop_characteristics$SOUTH+pop_characteristics$WEST+pop_characteristics$NORTHEAST)
+pop_pct$SOUTH <- pop_characteristics$SOUTH/(pop_characteristics$MIDWEST+pop_characteristics$SOUTH+pop_characteristics$WEST+pop_characteristics$NORTHEAST)
+pop_pct$MIDWEST <- pop_characteristics$MIDWEST/(pop_characteristics$MIDWEST+pop_characteristics$SOUTH+pop_characteristics$WEST+pop_characteristics$NORTHEAST)
+pop_pct$NORTHEAST <- pop_characteristics$NORTHEAST/(pop_characteristics$MIDWEST+pop_characteristics$SOUTH+pop_characteristics$WEST+pop_characteristics$NORTHEAST)
+
+#RULE
+pop_pct$RURAL <- pop_characteristics$RURAL/(pop_characteristics$RURAL+pop_characteristics$URBAN)
+pop_pct$URBAN <- pop_characteristics$URBAN/(pop_characteristics$RURAL+pop_characteristics$URBAN)
+
+```
+
+```{r}
+saveRDS(pop_pct,  here("data", "vaccination", "population_characteristics.rds"))
+```
+
+
+
