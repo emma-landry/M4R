@@ -87,7 +87,6 @@ fit <- do.call("epim", args)
 
 res <- list(
   fit = fit,
-  county = groups$county[i],
   state = this.short
 )
 
