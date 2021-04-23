@@ -1,0 +1,147 @@
+---
+title: "State_Regression"
+author: "Emma Landry"
+date: "4/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+library(readxl)
+library(rstan)
+```
+
+```{r}
+short_state <- c("AL","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY",
+                 "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
+                 "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY") 
+```
+
+Columns Needed:
+-Over 18 total pop
+-Over 18 population hesitating
+-don't like vaccines
+-dont trust covid 19 vaccines
+-don't trust the government
+-other people need it more right now (could be negatively correlated with trump voting)
+
+```{r}
+zeros <- rep(0, 48)
+vax <- data.frame("STATE" = short_state,
+                  "TOT_POP" = zeros, 
+                  "TOT_HESIT" = zeros,
+                  "NO_LIKE" = zeros,
+                  "NO_VAX_TRUST"= zeros,
+                  "NO_GOV_TRUST"= zeros,
+                  "OTHERS_NEED"= zeros)
+
+```
+
+
+```{r}
+for (i in seq(1:48)){
+  df1 <- read_excel(here::here("data", "vaccination_hesitancy", "health5_week22.xlsx"), sheet = short_state[i])
+  df2 <-read_excel(here::here("data", "vaccination_hesitancy", "health6_week22.xlsx"), sheet = short_state[i])
+  vax$TOT_POP[i] <- df1[8,2]
+  vax$TOT_HESIT[i]<- df2[7,2]
+  vax$NO_LIKE[i]<- df2[7,6]
+  vax$NO_VAX_TRUST[i] <- df2[7,11]
+  vax$NO_GOV_TRUST[i] <- df2[7,12]
+  vax$OTHERS_NEED[i] <- df2[7,9]
+}
+```
+
+```{r}
+vax$TOT_POP <- as.numeric(vax$TOT_POP)
+vax$TOT_HESIT <- as.numeric(vax$TOT_HESIT)
+vax$NO_LIKE <- as.numeric(vax$NO_LIKE)
+vax$NO_VAX_TRUST<- as.numeric(vax$NO_GOV_TRUST)
+vax$NO_GOV_TRUST <- as.numeric(vax$NO_GOV_TRUST)
+vax$OTHERS_NEED <- as.numeric(vax$OTHERS_NEED)
+```
+
+```{r}
+vax_prop <- data.frame("STATE"= vax$STATE,
+                       "TOT_POP"= vax$TOT_POP,
+                       "HESIT" = vax$TOT_HESIT/ vax$TOT_POP,
+                       "NO_LIKE" = vax$NO_LIKE/vax$TOT_POP,
+                       "NO_VAX_TRUST"= vax$NO_VAX_TRUST/vax$TOT_POP,
+                       "NO_GOV_TRUST"= vax$NO_GOV_TRUST/vax$TOT_POP,
+                       "OTHERS_NEED"= vax$OTHERS_NEED/vax$TOT_POP,
+                       "OTHERS_NEEDhesprop" = vax$OTHERS_NEED/vax$TOT_HESIT)
+```
+
+```{r}
+elec <- read.csv(here::here("data", "election", "1976-2020-president.csv"))
+elec <- subset(elec, ((elec$year==2020 | elec$year==2016)& elec$party_simplified=="REPUBLICAN"))
+elec <- subset(elec, (elec$state!= "DISTRICT OF COLUMBIA" & elec$state != "ALASKA" & elec$state!= "HAWAII" & elec$writein == FALSE) )
+```
+
+```{r}
+prop_2020 <- subset(elec, elec$year==2020)$candidatevotes /subset(elec, elec$year==2020)$totalvotes
+prop_2016 <- subset(elec, elec$year==2016)$candidatevotes /subset(elec, elec$year==2016)$totalvotes
+change <- (prop_2020-prop_2016)
+```
+
+
+```{r}
+trump_data <- data.frame("STATE"= elec$state_po,
+                         "VOTES_2020" = prop_2020,
+                         "CHANGE_2020" = change)
+```
+
+```{r}
+path <- "/Volumes/evl17/home/Msc/Outputs/rt_medians/state1/"
+path <- paste0(path, "alabama_3395374[1].pbs_medians.rds")
+```
+
+```{r}
+long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut",
+                "delaware", "florida", "georgia", "idaho", "illinois","indiana","iowa", "kansas",
+                "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan",
+                "minnesota", "mississippi", "missouri","montana", "nebraska", "nevada","new_hampshire",
+                "new_jersey", "new_mexico", "new_york", "north_carolina", "north_dakota", "ohio",
+                "oklahoma", "oregon", "pennsylvania", "rhode_island", "south_carolina",
+                "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington",
+                "west_virginia","wisconsin", "wyoming")
+```
+
+```{r}
+medians <- read.csv("/Volumes/evl17/home/Msc/Outputs/rt_medians/state1/alabama_3395374[1].pbs_medians.rds")
+
+```
+
+```{r}
+file_list <- list.files(path= "/Volumes/evl17/home/Msc/Outputs/rt_medians/state1")
+file_list
+```
+
+```{r}
+for (i in seq(1:49)){
+  path <- paste0("/Volumes/evl17/home/Msc/Outputs/rt_medians/state1/", file_list[i])
+  medians <- read.csv(path)
+  print(nrow(medians))
+}
+```
+```{r}
+path
+```
+```{r}
+epitfit <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/alabama_3395374[1].pbs.rds")
+```
+
+```{r}
+rt <- posterior_rt(epitfit$fit)
+rt$time
+```
+
+
+

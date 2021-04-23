@@ -96,7 +96,7 @@ setwd("..")
 parent <- getwd()
 setwd(wd)
 
-saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/state1/", filename))
+saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/state2/", filename))
 
 
 rt <- posterior_rt(res$fit)
@@ -106,4 +106,4 @@ rt_df <- data.frame("Date"= rt$time, "Rt_medians"= rt_medians)
 
 
 filename2 <- paste0(this.long,"_",job.id,"_medians.rds")
-write.csv(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/state1/", filename2))
+saveRDS(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/state2/", filename2))
