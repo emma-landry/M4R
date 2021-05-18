@@ -17,6 +17,12 @@ library(here)
 library(readr)
 library(readxl)
 library(rstan)
+library(ggplot2)
+library(GGally)
+library(reshape2) #for melt
+library(urbnmapr)
+library(tidyverse)
+library(rstanarm)
 ```
 
 ```{r}
@@ -42,7 +48,6 @@ vax <- data.frame("STATE" = short_state,
                   "NO_VAX_TRUST"= zeros,
                   "NO_GOV_TRUST"= zeros,
                   "OTHERS_NEED"= zeros)
-
 ```
 
 
@@ -63,7 +68,7 @@ for (i in seq(1:48)){
 vax$TOT_POP <- as.numeric(vax$TOT_POP)
 vax$TOT_HESIT <- as.numeric(vax$TOT_HESIT)
 vax$NO_LIKE <- as.numeric(vax$NO_LIKE)
-vax$NO_VAX_TRUST<- as.numeric(vax$NO_GOV_TRUST)
+vax$NO_VAX_TRUST<- as.numeric(vax$NO_VAX_TRUST)
 vax$NO_GOV_TRUST <- as.numeric(vax$NO_GOV_TRUST)
 vax$OTHERS_NEED <- as.numeric(vax$OTHERS_NEED)
 ```
@@ -72,11 +77,11 @@ vax$OTHERS_NEED <- as.numeric(vax$OTHERS_NEED)
 vax_prop <- data.frame("STATE"= vax$STATE,
                        "TOT_POP"= vax$TOT_POP,
                        "HESIT" = vax$TOT_HESIT/ vax$TOT_POP,
-                       "NO_LIKE" = vax$NO_LIKE/vax$TOT_POP,
-                       "NO_VAX_TRUST"= vax$NO_VAX_TRUST/vax$TOT_POP,
-                       "NO_GOV_TRUST"= vax$NO_GOV_TRUST/vax$TOT_POP,
-                       "OTHERS_NEED"= vax$OTHERS_NEED/vax$TOT_POP,
-                       "OTHERS_NEEDhesprop" = vax$OTHERS_NEED/vax$TOT_HESIT)
+                       "NO_LIKE" = vax$NO_LIKE/vax$TOT_HESIT,
+                       "NO_VAX_TRUST"= vax$NO_VAX_TRUST/vax$TOT_HESIT,
+                       "NO_GOV_TRUST"= vax$NO_GOV_TRUST/vax$TOT_HESIT,
+                       "OTHERS_NEED"= vax$OTHERS_NEED/vax$TOT_HESIT
+                       )
 ```
 
 ```{r}
@@ -93,7 +98,7 @@ change <- (prop_2020-prop_2016)
 
 
 ```{r}
-trump_data <- data.frame("STATE"= elec$state_po,
+trump_data <- data.frame("STATE"= subset(elec, elec$year==2020)$state_po,
                          "VOTES_2020" = prop_2020,
                          "CHANGE_2020" = change)
 ```
@@ -124,24 +129,220 @@ file_list <- list.files(path= "/Volumes/evl17/home/Msc/Outputs/rt_medians/state1
 file_list
 ```
 
+
 ```{r}
+meds <- c()
 for (i in seq(1:49)){
   path <- paste0("/Volumes/evl17/home/Msc/Outputs/rt_medians/state1/", file_list[i])
   medians <- read.csv(path)
-  print(nrow(medians))
+  meds <- c(meds,nrow(medians) )
 }
 ```
+
 ```{r}
-path
+min(meds)
+max(meds)
 ```
+Corresponds to South Carolina and California
+
 ```{r}
-epitfit <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/alabama_3395374[1].pbs.rds")
+epifit_sc <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/rhode_island_3395374[38].pbs.rds")
 ```
 
 ```{r}
-rt <- posterior_rt(epitfit$fit)
-rt$time
+rt <- posterior_rt(epifit_sc$fit)
+times<- rt$time
+```
+
+```{r}
+path <- paste0("/Volumes/evl17/home/Msc/Outputs/rt_medians/state1/", file_list[5])
+medians <- read.csv(path)
+meds <- c(meds,nrow(medians) )
+```
+
+```{r}
+medians_end <- tail(medians, 379)
+medians_end$Date <- times
+medians_end <- medians_end[,-1]
+colnames(medians_end)<- c("Median", "Date")
 ```
 
 
+Times I am interested in:
+-Summer: 01/07-31/08 index 106:167
+-Two months before election: 04/09- 04/11 index 171: 232
+-From 15/11 to 15/01 index 243: 304
+
+```{r}
+average_rt <- data.frame("STATE"= short_state,
+                         "VALS1"= zeros,
+                         "VALS2"= zeros,
+                         "VALS3"= zeros)
+```
+
+```{r}
+for (i in seq(1:49)){
+  if (i==2) next
+  
+  path <- paste0("/Volumes/evl17/home/Msc/Outputs/rt_medians/state1/", file_list[i])
+  medians <- read.csv(path)
+  medians_end <- tail(medians, 379)
+  medians_end$Date <- times
+  medians_end <- medians_end[,-1]
+  colnames(medians_end)<- c("Median", "Date")
+  
+  val1 <- mean(medians_end$Median[106:167])
+  val2 <- mean(medians_end$Median[171:232])
+  val3 <- mean(medians_end$Median[243:304])
+  
+  if (i==1){
+  average_rt$VALS1[i] <- val1
+  average_rt$VALS2[i] <- val2
+  average_rt$VALS3[i] <- val3
+  }
+  else{
+    average_rt$VALS1[i-1] <- val1
+    average_rt$VALS2[i-1] <- val2
+    average_rt$VALS3[i-1] <- val3
+  }
+}
+```
+
+
+Combined features
+```{r}
+features <- merge(vax_prop, trump_data, by= "STATE")
+features <- features[,-2]
+```
+
+
+```{r}
+pdf("ggpairstate.pdf", width = 15, height= 15, pointsize = 12)
+g<- ggpairs(features[,2:8])
+print(g)
+dev.off()
+```
+```{r}
+cor_matrix <- cor(features[,2:8])
+melted_cor <- melt(cor_matrix)
+
+pdf("correlation.pdf", width = 10, height= 10, pointsize = 40)
+ggplot(data = melted_cor, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()+
+  scale_fill_gradient2(high = "#F8766D", low = "#00BFC4", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab",
+                       name="Pearson\nCorrelation") +
+  xlab("")+
+  ylab("")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 270, vjust = 0.5, hjust=0))
+dev.off()
+
+```
+
+```{r}
+states_urbn <- states
+cnames_urbn<- colnames(states_urbn)
+cnames_urbn[8] <- "STATE"
+colnames(states_urbn) <- cnames_urbn
+```
+
+
+```{r}
+ccdf_labels <- get_urbn_labels(map = "ccdf")
+ccdf_labels <- ccdf_labels[-c(2,3, 10,13,14,23,43,51),]
+
+map_plots <- left_join(features, states_urbn, by = "STATE")
+map_plots <- left_join(map_plots, average_rt, by = "STATE")
+
+pdf("repvote.pdf", width = 15, height= 10, pointsize = 15)
+ggplot() +
+  geom_polygon(data= map_plots,mapping = aes(long, lat, group = group, fill = VOTES_2020*100),color = "#ffffff", size = 0.25) +
+  geom_text(data = ccdf_labels, aes(long, lat, label = state_abbv), size = 4) +  
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(fill = "Republican Voting (%)")+
+  xlab("Longitude")+
+  ylab("Latitude")
+dev.off()
+```
+
+
+```{r}
+pdf("hesitancy.pdf", width = 15, height= 10, pointsize = 15)
+ggplot() +
+  geom_polygon(data= map_plots,mapping = aes(long, lat, group = group, fill = HESIT*100),color = "#ffffff", size = 0.25) +
+  geom_text(data = ccdf_labels, aes(long, lat, label = state_abbv), size = 4) +  
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(fill = "Vaccination Hesitancy (%)")+
+  xlab("Longitude")+
+  ylab("Latitude")
+dev.off()
+```
+```{r}
+pdf("rt_map.pdf", width = 15, height= 10, pointsize = 15)
+ggplot() +
+  geom_polygon(data= map_plots,mapping = aes(long, lat, group = group, fill = VALS3),color = "#ffffff", size = 0.25) +
+  geom_text(data = ccdf_labels, aes(long, lat, label = state_abbv), size = 4) +  
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(fill = "Average Rt Nov. \n15 2020- Jan. 15 2020")+
+  xlab("Longitude")+
+  ylab("Latitude")
+dev.off()
+```
+
+
+Start with fitting the nov-jan rt
+```{r}
+matrix1 <- merge(average_rt, features, by = "STATE")
+matrix1 <- matrix1[,-1]
+```
+
+Just votes:
+```{r}
+lm1 <- lm (VALS3 ~ VOTES_2020, data = matrix1)
+summary(lm1)
+
+ggplot(matrix1, aes(x = VOTES_2020, y = VALS3)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+```
+
+```{r}
+lm2 <- lm (VALS3 ~ VOTES_2020+ CHANGE_2020, data = matrix1)
+summary(lm2)
+```
+
+```{r}
+lm3 <- lm(VALS3 ~ HESIT, data= matrix1)
+summary(lm3)
+
+ggplot(matrix1, aes(x = HESIT, y = VALS3)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+```
+```{r}
+lm4 <- lm(VALS3 ~ NO_GOV_TRUST+ HESIT, data = matrix1)
+summary(lm4)
+```
+```{r}
+lm6 <- lm(VALS1 ~  HESIT +VOTES_2020, data = matrix1)
+summary(lm6)
+```
+
+
+```{r}
+lm5 <- lm(VALS3 ~  HESIT + NO_LIKE+ NO_VAX_TRUST+ NO_GOV_TRUST+ OTHERS_NEED+ VOTES_2020+ CHANGE_2020, data = matrix1)
+summary(lm5)
+```
+
+```{r}
+bayes_lm <- stan_lm (VALS3 ~  HESIT + NO_LIKE+ NO_VAX_TRUST+ NO_GOV_TRUST+ OTHERS_NEED+ VOTES_2020+ CHANGE_2020, data = matrix1, algorithm = "sampling",prior = R2(0.5))
+```
+```{r}
+#summary(bayes_lm)
+print(bayes_lm)
+```
+```{r}
+
+```
 

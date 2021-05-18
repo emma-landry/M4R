@@ -1,0 +1,305 @@
+---
+title: "State Regression + Polls"
+author: "Emma Landry"
+date: "5/14/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+library(readxl)
+library(rstan)
+library(ggplot2)
+library(GGally)
+library(reshape2) #for melt
+library(urbnmapr)
+library(tidyverse)
+library(rstanarm)
+```
+
+```{r}
+short_state <- c("AL","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY",
+                 "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
+                 "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY") 
+```
+
+Columns Needed:
+-Over 18 total pop
+-Over 18 population hesitating
+-don't like vaccines
+-dont trust covid 19 vaccines
+-don't trust the government
+-other people need it more right now (could be negatively correlated with trump voting)
+
+```{r}
+zeros <- rep(0, 48)
+vax <- data.frame("STATE" = short_state,
+                  "TOT_POP" = zeros, 
+                  "TOT_HESIT" = zeros,
+                  "NO_LIKE" = zeros,
+                  "NO_VAX_TRUST"= zeros,
+                  "NO_GOV_TRUST"= zeros,
+                  "OTHERS_NEED"= zeros)
+```
+
+
+```{r}
+for (i in seq(1:48)){
+  df1 <- read_excel(here::here("data", "vaccination_hesitancy", "health5_week22.xlsx"), sheet = short_state[i])
+  df2 <-read_excel(here::here("data", "vaccination_hesitancy", "health6_week22.xlsx"), sheet = short_state[i])
+  vax$TOT_POP[i] <- df1[8,2]
+  vax$TOT_HESIT[i]<- df2[7,2]
+  vax$NO_LIKE[i]<- df2[7,6]
+  vax$NO_VAX_TRUST[i] <- df2[7,11]
+  vax$NO_GOV_TRUST[i] <- df2[7,12]
+  vax$OTHERS_NEED[i] <- df2[7,9]
+}
+```
+
+```{r}
+vax$TOT_POP <- as.numeric(vax$TOT_POP)
+vax$TOT_HESIT <- as.numeric(vax$TOT_HESIT)
+vax$NO_LIKE <- as.numeric(vax$NO_LIKE)
+vax$NO_VAX_TRUST<- as.numeric(vax$NO_VAX_TRUST)
+vax$NO_GOV_TRUST <- as.numeric(vax$NO_GOV_TRUST)
+vax$OTHERS_NEED <- as.numeric(vax$OTHERS_NEED)
+```
+
+```{r}
+vax_prop <- data.frame("STATE"= vax$STATE,
+                       "TOT_POP"= vax$TOT_POP,
+                       "HESIT" = vax$TOT_HESIT/ vax$TOT_POP,
+                       "NO_LIKE" = vax$NO_LIKE/vax$TOT_HESIT,
+                       "NO_VAX_TRUST"= vax$NO_VAX_TRUST/vax$TOT_HESIT,
+                       "NO_GOV_TRUST"= vax$NO_GOV_TRUST/vax$TOT_HESIT,
+                       "OTHERS_NEED"= vax$OTHERS_NEED/vax$TOT_HESIT
+                       )
+```
+
+```{r}
+elec <- read.csv(here::here("data", "election", "1976-2020-president.csv"))
+elec <- subset(elec, ((elec$year==2020 | elec$year==2016)& elec$party_simplified=="REPUBLICAN"))
+elec <- subset(elec, (elec$state!= "DISTRICT OF COLUMBIA" & elec$state != "ALASKA" & elec$state!= "HAWAII" & elec$writein == FALSE) )
+```
+
+```{r}
+prop_2020 <- subset(elec, elec$year==2020)$candidatevotes /subset(elec, elec$year==2020)$totalvotes
+prop_2016 <- subset(elec, elec$year==2016)$candidatevotes /subset(elec, elec$year==2016)$totalvotes
+change <- (prop_2020-prop_2016)
+```
+
+
+```{r}
+trump_data <- data.frame("STATE"= subset(elec, elec$year==2020)$state_po,
+                         "VOTES_2020" = prop_2020,
+                         "CHANGE_2020" = change)
+```
+
+```{r}
+path <- "/Volumes/evl17/home/Msc/Outputs/rt_medians/state1/"
+path <- paste0(path, "alabama_3395374[1].pbs_medians.rds")
+```
+
+```{r}
+long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut",
+                "delaware", "florida", "georgia", "idaho", "illinois","indiana","iowa", "kansas",
+                "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan",
+                "minnesota", "mississippi", "missouri","montana", "nebraska", "nevada","new_hampshire",
+                "new_jersey", "new_mexico", "new_york", "north_carolina", "north_dakota", "ohio",
+                "oklahoma", "oregon", "pennsylvania", "rhode_island", "south_carolina",
+                "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington",
+                "west_virginia","wisconsin", "wyoming")
+```
+
+```{r}
+file_list <- list.files(path= "/Volumes/evl17/home/Msc/Outputs/rt_medians/state1")
+file_list
+```
+
+```{r}
+epifit_sc <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/rhode_island_3395374[38].pbs.rds")
+```
+
+```{r}
+rt <- posterior_rt(epifit_sc$fit)
+times<- rt$time
+```
+
+```{r}
+med_df <- data.frame(matrix(ncol = 379, nrow = 49))
+colnames(med_df)<- times
+med_df$state <- NA
+med_df <- med_df %>%
+  select(state, everything())
+```
+
+
+```{r}
+count <- 1
+  
+for (i in seq(1:49)){
+  this.long <- long_state[i]
+  
+  path <- paste0("/Volumes/evl17/home/Msc/Outputs/rt_medians/state1/", file_list[i])
+  medians <- read.csv(path)
+  medians_end <- tail(medians, 379)
+  vec <- c(this.long, as.numeric(medians_end$x))
+
+  med_df[count,] <- vec
+  count <- count +1
+}
+```
+
+
+```{r}
+topline_elec <- read.csv(here::here("data", "election", "presidential_state_toplines_2020.csv"))
+```
+
+```{r}
+topline_elec_cut <- topline_elec[,-c(1,2,3,7,9,10,11,12,13)]
+topline_elec_cut <- topline_elec_cut[,-(9:28)]
+topline_elec_cut <- topline_elec_cut[,-7]
+topline_elec_cut <- topline_elec_cut %>% arrange(-row_number())
+```
+
+
+```{r}
+topline_elec_cut <- subset(topline_elec_cut, (state!= "ME-2" & state!= "ME-1" & state != "Hawaii"&state!= "NE-1" &state!= "NE-2" &state!= "NE-3" & state!= "District of Columbia" ))
+```
+
+```{r}
+nrow(subset(topline_elec_cut, modeldate == "11/3/2020"))
+```
+
+```{r}
+dates_elec <-unique(topline_elec_cut$modeldate)
+```
+
+```{r}
+poll_forecasts_trump <- data.frame(matrix(ncol = length(dates_elec), nrow = 49))
+colnames(poll_forecasts_trump)<- dates_elec
+poll_forecasts_trump$state <- long_state
+poll_forecasts_trump <- poll_forecasts_trump%>%
+  select(state, everything())
+```
+
+
+```{r}
+for (i in (1:length(dates_elec))){
+  time <- dates_elec[i]
+  mini_df <- subset(topline_elec_cut, modeldate == time)
+  poll_forecasts_trump[,i+1]<- mini_df$voteshare_inc
+}
+```
+
+```{r}
+poll_forecasts_trump <- subset(poll_forecasts_trump, state != "alaska")
+poll_forecasts_trump$`11/4/2020`<- trump_data$VOTES_2020*100
+```
+
+```{r}
+med_df_cut <- med_df[,c(1,77:380)]
+med_df_cut<- subset(med_df_cut, state!= "alaska")
+med_df_cut[,2:305] <- lapply(med_df_cut[,2:305],as.numeric)
+```
+
+```{r}
+ncol(med_df[,2:15])
+```
+```{r}
+trump_coeffs <- c()
+hes_coeffs <- c()
+```
+
+
+```{r}
+ind1 <- 2
+ind2 <- ind1+13
+for (i in seq(1:16)){
+  if (i<=10){ 
+   means_rt <-  rowMeans(med_df_cut[,ind1:ind2])
+   means_forecast <- rowMeans(poll_forecasts_trump[,ind1:ind2])
+   matrix <- data.frame("Medians"= means_rt,
+                    "Trump"= means_forecast,
+                    "Hes" = vax_prop$HESIT)
+  }
+  else{ #We no longer use poll data just results
+    means_rt <-  rowMeans(med_df_cut[,ind1:ind2])
+    forecast <- poll_forecasts_trump$`11/4/2020`
+    matrix <- data.frame("Medians"= means_rt,
+                    "Trump"= forecast,
+                    "Hes" = vax_prop$HESIT)
+  }
+  
+  model <- lm(Medians ~ Trump + Hes, data= matrix) 
+  trump_coeffs <- c(trump_coeffs, model$coefficients[2])
+  hes_coeffs <- c(hes_coeffs, model$coefficients[3])
+  
+  ind1<- ind2+1
+  ind2 <- ind1+13
+
+}
+
+```
+```{r}
+plot(hes_coeffs)
+```
+Until index 10- general trend is negative correlation between vaccination hesitancy and Rt. Higher vaccination hesitancy, lower Rt- not very logical. Note: using vaccination hesitancy from mid-January. This means in the months leading up to election, higher vaccination hesitancy in January is actually counter informative, i.e. the states that will be most hesitant in January, actually had lower Rt in the fall.
+
+```{r}
+plot(trump_coeffs)
+```
+Until index 10 (election day), trump voting is positively correlated with higher Rt. After that date, where we only use the results from November 4th.
+
+
+We can observe a random date in fall, and one in december
+
+```{r}
+plot_df_sept28 <- data.frame("TrumpSupport"= poll_forecasts_trump[,121],
+                       "RtMedian" = med_df_cut[,121],
+                       "Hesitancy" = vax_prop$HESIT,
+                       "State"= str_to_title(gsub("_", " ", med_df_cut$state)))
+
+plot_df_dec16 <- data.frame("TrumpSupport"= poll_forecasts_trump[,158],
+                       "RtMedian" = med_df_cut[,200],
+                       "Hesitancy" = vax_prop$HESIT,
+                       "State"= str_to_title(gsub("_", " ", med_df_cut$state)))
+
+```
+
+```{r}
+sp1 <- ggplot(data= plot_df_sept28, aes(x=TrumpSupport,y=RtMedian,label = State))+
+  geom_point()+
+  geom_text()
+sp1
+
+sp2 <- ggplot(data= plot_df_dec16, aes(x=TrumpSupport,y=RtMedian,label = State))+
+  geom_point()+
+  geom_text()
+sp2
+```
+
+
+
+```{r}
+sp3 <- ggplot(data= plot_df_sept28, aes(x=Hesitancy,y=RtMedian,label = State))+
+  geom_point()+
+  geom_text()
+sp3
+
+sp4 <- ggplot(data= plot_df_dec16, aes(x=Hesitancy,y=RtMedian,label = State))+
+  geom_point()+
+  geom_text()
+sp4
+```
+
+
+
+

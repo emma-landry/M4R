@@ -1,0 +1,357 @@
+---
+title: "Regression (County)"
+author: "Emma Landry"
+date: "4/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+library(readxl)
+library(rstan)
+library(ggplot2)
+library(GGally)
+library(reshape2) #for melt
+library(urbnmapr)
+library(tidyverse)
+library(rstanarm)
+```
+
+```{r}
+short_state <- c("AL", "AK","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY",
+                 "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
+                 "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY") 
+
+long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut",
+                "delaware", "florida", "georgia", "idaho", "illinois","indiana","iowa", "kansas",
+                "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan",
+                "minnesota", "mississippi", "missouri","montana", "nebraska", "nevada", "new_hampshire",
+                "new_jersey", "new_mexico", "new_york", "north_carolina", "north_dakota", "ohio",
+                "oklahoma", "oregon", "pennsylvania", "rhode_island", "south_carolina",
+                "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington",
+                "west_virginia","wisconsin", "wyoming")
+```
+
+```{r}
+jobid <- "3394181"
+```
+
+```{r}
+epifit <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Baldwin_County_AL_3394181[1].pbs.rds")
+rt <- posterior_rt(epifit$fit)
+times<- rt$time
+times <- tail(times, 350)
+```
+
+```{r}
+all_medians_df <- data.frame(matrix(ncol = 350, nrow = 795))
+colnames(all_medians_df)<- times
+all_medians_df$state <- NA
+all_medians_df$county <- NA
+
+#move these columns to the front
+all_medians_df <- all_medians_df %>%
+  select(county, everything())
+all_medians_df <- all_medians_df %>%
+  select(state, everything())
+```
+
+
+```{r}
+count <- 1
+for (i in seq(1:49)){
+  this.short <- short_state[i]
+  this.long <- long_state[i]
+  print(this.long)
+  
+  group.file.name<- paste0(this.long, "_groups.rds")
+  groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
+  N <- nrow(groups)
+  for (j in seq(1:N)){
+    print(count)
+    if( j==50)  break;
+    filename <- paste0(gsub("\\s", "_", groups$county[j]), "_", this.short,"_",jobid,"[",i,"].pbs","_medians.rds")
+    path <- paste0("/Volumes/evl17/home/Msc/Outputs/rt_medians/run6/", filename)
+    medians <- read.csv(path)
+    medians_end <- tail(medians, 350)
+    vec <- c(this.long, groups$county[j], as.numeric(medians_end$x))
+    all_medians_df[count,] <- vec
+    count <- count +1
+  }
+}
+```
+
+
+```{r}
+all_medians_df <- subset(all_medians_df, state != "alaska")
+```
+
+
+```{r}
+new_pres_data <- read.csv(here("data", "election", "2020_US_County_Level_Presidential_Results.csv"))
+new_pres_data <- subset(new_pres_data, state_name != "Hawaii" & state_name != "District of Columbia")
+```
+
+```{r}
+voting_df <- data.frame(matrix(ncol = 3, nrow = 792))
+colnames(voting_df) <- c("state", "county", "Trump")
+```
+
+
+```{r}
+count <- 1
+for (i in seq(1:49)){
+  this.short <- short_state[i]
+  this.long <- long_state[i]
+  print(this.long)
+  
+  group.file.name<- paste0(this.long, "_groups.rds")
+  groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
+  N <- nrow(groups)
+  for (j in seq(1:N)){
+    print(count)
+    if( j==50)  break;
+    if(i ==2 ) {
+      break}
+    
+    fips <- unlist(groups$county_fips[j])
+    if (length(fips)==1){
+    rows <- filter(new_pres_data, county_fips == fips)
+    voting_df[count,]$state <- this.long
+    voting_df[count,]$county<- groups$county[j]
+    voting_df[count,]$Trump <- rows$per_gop
+    
+  }else{
+    rows <- filter(new_pres_data, county_fips %in% fips)
+    
+    votes <- sum(rows$votes_gop)/ sum(rows$total_votes)
+    voting_df[count,]$state <- this.long
+    voting_df[count,]$county<- groups$county[j]
+    voting_df[count,]$Trump <- votes
+  }
+  
+    count <- count + 1
+  }
+}
+```
+
+```{r}
+vax <- read_excel(here::here("data", "vaccination_hesitancy", "Predicted-Vaccine-Hesitancy-by-State-PUMA-County.xlsx"), sheet = "county_hesitancy_estimates")
+```
+
+```{r}
+index <- vax$`FIPS Code`== 46113
+vax$`FIPS Code`[index]<- 46102
+
+vax <- subset(vax, `FIPS Code` != 51515) #Bedford city is part of Bedford
+```
+
+
+```{r}
+pop <- read.csv(here::here("data", "vaccination_hesitancy", "cc-est2019-alldata.csv"))
+```
+
+```{r}
+pop <- subset(pop, YEAR == "12")
+pop_df <- subset(pop, AGEGRP != "0" & AGEGRP != "1" & AGEGRP != "2"& AGEGRP != "3"& AGEGRP != "4")  # remove less than 20
+pop_df <- aggregate(pop_df[8:80], by = pop_df[2:5] ,FUN = sum) #sum up
+
+pop_df<- pop_df[
+  with(pop_df, order(STATE, COUNTY)),
+]
+#reorder back to norm
+
+pop_df[,5:77] <- pop_df[,5:77] + floor(subset(pop,  AGEGRP == "4")[,8:80]/2) #add hakf of the 15-19 group
+```
+
+```{r}
+pop_df <- pop_df[,1:5]
+```
+
+```{r}
+pop_df <-
+    pop_df%>%
+    mutate(STATE = str_pad(STATE, 2, side = 'left', pad = '0'))
+pop_df <-
+    pop_df%>%
+    mutate(COUNTY = str_pad(COUNTY, 3, side = 'left', pad = '0'))
+pop_df <- within(pop_df, FIPS <- paste(STATE,COUNTY,sep=''))
+```
+
+```{r}
+pop_df <- pop_df %>%
+  select(FIPS, everything())
+pop_df<- subset(pop_df, STNAME != "District of Columbia" & STNAME != "Hawaii")
+```
+
+```{r}
+hesitancy_df <-data.frame(matrix(ncol = 4, nrow = 792))
+colnames(hesitancy_df) <- c("state", "county", "Hes", "Strong_hes")
+```
+
+```{r}
+count <- 1
+for (i in seq(1:49)){
+  this.short <- short_state[i]
+  this.long <- long_state[i]
+  print(this.long)
+  
+  group.file.name<- paste0(this.long, "_groups.rds")
+  groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
+  N <- nrow(groups)
+  for (j in seq(1:N)){
+    print(count)
+    if( j==50)  break;
+    if(i ==2 ) {
+      break}
+    
+    fips <- unlist(groups$county_fips[j])
+    if (length(fips)==1){
+    rows <- filter(vax, as.integer(`FIPS Code`) == fips)
+    hesitancy_df$state[count] <- this.long
+    hesitancy_df$county[count]<- groups$county[j]
+    hesitancy_df$Hes[count] <- rows$`% Estimated Hesitant - March 3 - March 15, 2021`
+    hesitancy_df$Strong_hes [count] <- rows$`% Estimated Strongly Hesitant - March 3 - March 15, 2021`
+    
+  }else{
+    rows <- filter(vax, as.integer(`FIPS Code`) %in% fips)
+    pop_rows <- filter(pop_df, as.integer(FIPS) %in% fips)
+    h1 <- pop_rows$TOT_POP%*%rows$`% Estimated Hesitant - March 3 - March 15, 2021`/sum(pop_rows$TOT_POP)
+    h2 <- pop_rows$TOT_POP%*%rows$`% Estimated Strongly Hesitant - March 3 - March 15, 2021` /sum(pop_rows$TOT_POP)
+    hesitancy_df$state[count] <- this.long
+    hesitancy_df$county[count]<- groups$county[j]
+    hesitancy_df$Hes[count] <- h1
+    hesitancy_df$Strong_hes [count]<- h2
+    
+  }
+  
+    count <- count + 1
+  }
+}
+```
+
+```{r}
+times
+```
+
+```{r}
+colnames(all_medians_df)[266]
+colnames(all_medians_df)[279]
+all_medians_df [,3:352]<- lapply(all_medians_df[,3:352],as.numeric)
+
+```
+
+Jan 4th - Jan 17th
+```{r}
+means1 <- rowMeans(all_medians_df[,266:279])
+```
+
+```{r}
+matrix1 <- data.frame("Medians"= means1,
+                      "Trump"= voting_df$Trump,
+                      "Hes" = hesitancy_df$Hes,
+                      "Strong_Hes"= hesitancy_df$Strong_hes)
+```
+
+```{r}
+lm1a <- lm(Medians ~ Trump + Hes, data = matrix1)
+summary(lm1a)
+```
+
+```{r}
+lm1b <- lm(Medians ~ Trump + Strong_Hes, data = matrix1)
+summary(lm1b)
+```
+```{r}
+lm1c <- lm(Medians ~ Trump, data = matrix1)
+summary(lm1c)
+```
+```{r}
+lm1d <- lm (Medians ~ Hes, data = matrix1)
+summary(lm1d)
+```
+
+```{r}
+lm1e <- lm (Medians ~ Trump+ Hes + Strong_Hes , data = matrix1)
+summary(lm1e)
+```
+
+```{r}
+trump_coeffs <- c()
+hes_coeffs <- c()
+```
+
+
+```{r}
+colnames(all_medians_df)[154]
+colnames(all_medians_df)[167]
+
+for (i in seq(1:12)){
+  ind1<- 154 + 14*(i-1)
+  ind2 <- ind1+13
+  
+  means <- rowMeans(all_medians_df[,ind1:ind2])
+  matrix <- data.frame("Medians"= means,
+                      "Trump"= voting_df$Trump,
+                      "Hes" = hesitancy_df$Hes,
+                      "Strong_Hes"= hesitancy_df$Strong_hes)
+ 
+  model <- lm(Medians ~ Trump + Hes, data= matrix) 
+  trump_coeffs <- c(trump_coeffs, model$coefficients[2])
+  hes_coeffs <- c(hes_coeffs, model$coefficients[3])
+}
+
+```
+
+```{r}
+plot(trump_coeffs, ylim = c(-1.5,1.5))
+points(hes_coeffs, col = 'red')
+```
+
+```{r}
+colnames(all_medians_df)[154+ 13*7]
+colnames(all_medians_df)[154+ 13*3]
+colnames(all_medians_df)[154+ 13*4]
+```
+
+```{r}
+
+```
+
+
+```{r}
+plot(hes_coeffs)
+```
+
+```{r}
+dat_counties <- urbnmapr::counties
+dat_counties <- subset(dat_counties, state_name != "Alaska" & state_name != "Hawaii")
+dat_counties$county_fips <- as.numeric(as.character(dat_counties$county_fips))
+
+pres_data <- new_pres_data
+pres_data$county_fips <- as.numeric(as.character(pres_data$county_fips))
+pres_combined_data <- left_join(dat_counties, new_pres_data, by = "county_fips")
+
+pres_combined_data %>%
+  ggplot(aes(long, lat, group = group, fill = per_gop)) +
+  geom_polygon(color = NA) +
+ scale_fill_gradient2(labels = scales::percent, guide = guide_colourbar(direction = "horizontal",title.position = "top"),low = "dodgerblue4", mid = "white", high = "red", midpoint = 0.5) +
+  geom_polygon(data = subset(states, state_name!= "Alaska" & state_name != "Hawaii"), mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") +
+  labs(fill = "Percentage Votes Trump")
+
+```
+
+
+

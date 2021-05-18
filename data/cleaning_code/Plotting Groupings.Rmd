@@ -1,0 +1,250 @@
+---
+title: "Plotting Groupings"
+author: "Emma Landry"
+date: "5/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(here)
+library(readr)
+library(ggplot2)
+library(GGally)
+library(reshape2) #for melt
+library(urbnmapr)
+library(tidyverse)
+library(urbnthemes)
+library(RColorBrewer)
+```
+
+```{r}
+groups_texas <- readRDS(here::here("data", "grouped_counties", "texas_groups.rds"))
+N <- nrow(groups_texas)
+tot <- 0
+for (i in (1:N)){
+  fips <- unlist(groups_texas$county_fips[i])
+  tot <- tot + length(fips)
+}
+tot
+```
+
+```{r}
+counties_texas <- counties%>% filter(state_name =="Texas")
+length(unique(counties_texas$county_fips))
+```
+
+```{r}
+texas_group_labels <-data.frame(matrix(ncol = 2, nrow = 254))
+colnames(texas_group_labels) <- c("county_fips", "grouping")
+count <- 1
+for (i in (1:N)){
+  fips <- unlist(groups_texas$county_fips[i])
+  fips_len <- length(fips)
+  if (fips_len ==1){
+    texas_group_labels[count,1] <- as.character(fips)
+    texas_group_labels[count,2]<- i
+    count <- count +1
+  }
+  else{
+    for (j in (1:fips_len)){
+      texas_group_labels[count,1] <- as.character(fips[j])
+      texas_group_labels[count,2]<- i
+      count <- count +1
+    }
+  }
+}
+```
+
+```{r}
+set.seed(4)
+mycolors <- sample(colorRampPalette(brewer.pal(8, "Accent"))(53))
+
+
+joined_texas <- texas_group_labels %>% left_join(counties_texas, by = "county_fips") 
+ggplot(joined_texas, mapping = aes(long, lat, group = group, fill = as.factor(grouping))) +
+  geom_polygon(color = "#ffffff", size = .25) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  ggtitle("Texas")+
+  theme_void()+
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.5, "in"),
+        plot.title = element_text(hjust = 0.5, size = 15)) +
+  guides(fill= FALSE)+
+  scale_fill_manual(values = mycolors)
+```
+
+
+```{r}
+groups_california <- readRDS(here::here("data", "grouped_counties", "california_groups.rds"))
+N <- nrow(groups_california)
+tot <- 0
+for (i in (1:N)){
+  fips <- unlist(groups_california$county_fips[i])
+  tot <- tot + length(fips)
+}
+tot
+```
+
+```{r}
+counties_california <- counties%>% filter(state_name =="California")
+length(unique(counties_california$county_fips))
+```
+
+```{r}
+california_group_labels <-data.frame(matrix(ncol = 2, nrow = 58))
+colnames(california_group_labels) <- c("county_fips", "grouping")
+count <- 1
+for (i in (1:N)){
+  fips <- unlist(groups_california$county_fips[i])
+  fips_len <- length(fips)
+  if (fips_len ==1){
+    california_group_labels[count,1] <- paste0("0", as.character(fips))
+    california_group_labels[count,2]<- i
+    count <- count +1
+  }
+  else{
+    for (j in (1:fips_len)){
+      california_group_labels[count,1] <- paste0("0", as.character(fips[j]))
+      california_group_labels[count,2]<- i
+      count <- count +1
+    }
+  }
+}
+```
+
+```{r}
+set.seed(7)
+mycolors <- sample(colorRampPalette(brewer.pal(8, "Accent"))(38))
+
+
+joined_california <- california_group_labels %>% left_join(counties_california, by = "county_fips") 
+ggplot(joined_california, mapping = aes(long, lat, group = group, fill = as.factor(grouping))) +
+  geom_polygon(color = "#ffffff", size = .25) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  ggtitle("California")+
+  theme_void()+
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.5, "in"),
+        plot.title = element_text(hjust = 0.5, size = 15)) +
+  guides(fill= FALSE)+
+  scale_fill_manual(values = mycolors)
+```
+
+```{r}
+groups_nebraska <- readRDS(here::here("data", "grouped_counties", "nebraska_groups.rds"))
+N <- nrow(groups_nebraska)
+tot <- 0
+for (i in (1:N)){
+  fips <- unlist(groups_nebraska$county_fips[i])
+  tot <- tot + length(fips)
+}
+tot
+```
+
+```{r}
+counties_nebraska <- counties%>% filter(state_name =="Nebraska")
+length(unique(counties_nebraska$county_fips))
+```
+
+```{r}
+nebraska_group_labels <-data.frame(matrix(ncol = 2, nrow = 93))
+colnames(nebraska_group_labels) <- c("county_fips", "grouping")
+count <- 1
+for (i in (1:N)){
+  fips <- unlist(groups_nebraska$county_fips[i])
+  fips_len <- length(fips)
+  if (fips_len ==1){
+    nebraska_group_labels[count,1] <- as.character(fips)
+    nebraska_group_labels[count,2]<- i
+    count <- count +1
+  }
+  else{
+    for (j in (1:fips_len)){
+      nebraska_group_labels[count,1] <- as.character(fips[j])
+      nebraska_group_labels[count,2]<- i
+      count <- count +1
+    }
+  }
+}
+```
+
+```{r}
+set.seed(8)
+mycolors <- sample(colorRampPalette(brewer.pal(7, "Accent"))(7))
+
+
+joined_nebraska <- nebraska_group_labels %>% left_join(counties_nebraska, by = "county_fips") 
+ggplot(joined_nebraska, mapping = aes(long, lat, group = group, fill = as.factor(grouping))) +
+  geom_polygon(color = "#ffffff", size = .25) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  ggtitle("Nebraska")+
+  theme_void()+
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.5, "in"),
+        plot.title = element_text(hjust = 0.5, size = 15)) +
+  guides(fill= FALSE)+
+  scale_fill_manual(values = mycolors)
+```
+
+
+```{r}
+groups_georgia <- readRDS(here::here("data", "grouped_counties", "georgia_groups.rds"))
+N <- nrow(groups_georgia)
+tot <- 0
+for (i in (1:N)){
+  fips <- unlist(groups_georgia$county_fips[i])
+  tot <- tot + length(fips)
+}
+tot
+```
+
+```{r}
+counties_georgia <- counties%>% filter(state_name =="Georgia")
+length(unique(counties_georgia$county_fips))
+```
+
+```{r}
+georgia_group_labels <-data.frame(matrix(ncol = 2, nrow = 159))
+colnames(georgia_group_labels) <- c("county_fips", "grouping")
+count <- 1
+for (i in (1:N)){
+  fips <- unlist(groups_georgia$county_fips[i])
+  fips_len <- length(fips)
+  if (fips_len ==1){
+    georgia_group_labels[count,1] <- as.character(fips)
+    georgia_group_labels[count,2]<- i
+    count <- count +1
+  }
+  else{
+    for (j in (1:fips_len)){
+      georgia_group_labels[count,1] <- as.character(fips[j])
+      georgia_group_labels[count,2]<- i
+      count <- count +1
+    }
+  }
+}
+```
+
+```{r}
+set.seed(2)
+mycolors <- sample(colorRampPalette(brewer.pal(8, "Accent"))(35))
+
+
+joined_georgia <- georgia_group_labels %>% left_join(counties_georgia, by = "county_fips") 
+ggplot(joined_georgia, mapping = aes(long, lat, group = group, fill = as.factor(grouping))) +
+  geom_polygon(color = "#ffffff", size = .25) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  ggtitle("Georgia")+
+  theme_void()+
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.5, "in"),
+        plot.title = element_text(hjust = 0.5, size = 15)) +
+  guides(fill= FALSE)+
+  scale_fill_manual(values = mycolors)
+```
+
