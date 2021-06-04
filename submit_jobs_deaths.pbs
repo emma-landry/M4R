@@ -1,0 +1,11 @@
+#!/bin/sh
+#PBS -l walltime=72:00:00
+#PBS -lselect=1:ncpus=4:mem=16gb
+#PBS -J1-49
+
+module load anaconda3/personal
+source activate epidemia_env
+
+cd $HOME/Msc/M4R/code
+Rscript county_fit_deaths_only.R
+
