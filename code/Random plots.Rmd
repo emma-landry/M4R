@@ -1,0 +1,91 @@
+---
+title: "Random Plots"
+author: "Emma Landry"
+date: "5/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+library(readxl)
+library(rstan)
+library(ggplot2)
+library(GGally)
+library(reshape2) #for melt
+library(urbnmapr)
+library(tidyverse)
+library(rstanarm)
+```
+```{r}
+points_si <- data.frame("Days" = 1:100,
+           "SI" = EuropeCovid$si)
+```
+
+```{r}
+xvals <- seq(0,100, by = 0.01)
+gammavals <- dgamma(xvals, 9/4, rate = 5/14)
+
+gamma_dist <- data.frame("Days"=  xvals,
+                         "SI" = gammavals)
+```
+
+
+```{r}
+plot(gammavals)
+```
+
+```{r}
+ggplot()+
+  geom_point(data= gamma_dist, aes (x= Days, y =SI, color ="Gamma(9/4, 5/14)"), size = 0.2)+
+  geom_point(data = points_si, aes(x= Days, y = SI, color = "Discrete Points"), size = 1)+
+  scale_color_manual(name = "",
+                        values = c("Discrete Points" = "#F8766D",
+                                   "Gamma(9/4, 5/14)" = "Black") )+
+  labs(y = "Serial Interval")+
+  ggtitle("Approximate Time Between Infections Distribution")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, size = 15),
+        legend.position = "none")
+
+ggsave("gammadist.pdf", height = 3, scale = 1)
+```
+```{r}
+points_i20 <- data.frame("Days" = 1:101,
+           "SI" = EuropeCovid$inf2death)
+```
+
+```{r}
+xvals <- seq(0,100, by = 0.01)
+gammavals1 <- dgamma(xvals, 1.4+4.9, rate =0.3)
+gammavals2 <- dgamma(xvals, 4.9, rate =0.3)
+
+#dcoga(xvals, shape = c(1.4,4.9), rate = c(0.3,0.3))
+
+gamma_dist_2 <- data.frame("Days"=  xvals,
+                         "SI" = gammavals1)
+```
+
+
+```{r}
+ggplot()+
+  geom_point(data= gamma_dist_2, aes (x= Days, y =SI, color ="Sum of Gamma"), size = 0.2)+
+  geom_point(data = points_i20, aes(x= Days, y = SI, color = "Discrete Points"), size = 1)+
+  scale_color_manual(name = "",
+                        values = c("Discrete Points" = "#F8766D",
+                                   "Sum of Gamma" = "Black") )+
+  labs(y = "Infection-to-Death Density")+
+    theme_bw()+
+  ggtitle("Approximate Infection to Death Distribution")+
+  theme(plot.title = element_text(hjust = 0.5, size = 15),
+        legend.position = "none")
+
+ggsave("gammadisti20.pdf", height = 3, scale = 1)
+```
+

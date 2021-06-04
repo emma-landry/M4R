@@ -1,0 +1,323 @@
+---
+title: "Epidemia Plots"
+author: "Emma Landry"
+date: "6/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+library(readxl)
+library(rstan)
+library(ggplot2)
+library(GGally)
+library(reshape2) #for melt
+library(urbnmapr)
+library(tidyverse)
+library(rstanarm)
+library(bayesplot)
+```
+
+ELECTIONS ARE WEEK 45
+
+```{r}
+alabama <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/alabama_3395374[1].pbs.rds")
+```
+
+```{r}
+alabama_rt <- posterior_rt(alabama$fit)
+```
+
+```{r}
+alabama_summary <- summary((alabama$fit)$stanfit)$summary
+alabama_summary[,9:10]
+alabama_summary
+```
+```{r}
+rownames(alabama_summary)
+```
+
+
+```{r}
+index <- (rownames(alabama_summary)=="R|rw(time = week)[45,all]")
+```
+
+```{r}
+color_scheme_set("mix-blue-red")
+mcmc_trace((alabama$fit)$stanfit, par = rownames(alabama_summary)[index])+
+  ggtitle("Alabama")+
+  theme_bw()+
+  theme(text = element_text(family = "sans"),
+        plot.title = element_text(hjust = 0.5, size = 15))+
+  labs(x = "Iteration", y = "Rt- Week 45")
+```
+
+
+
+```{r}
+data <- readRDS(here::here("data", "covid", "prepped_data_state.rds"))
+```
+
+
+```{r}
+california <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/california_3395374[5].pbs.rds")
+```
+
+```{r}
+california_rt <- posterior_rt(california$fit)
+```
+
+```{r}
+california_summary <- summary((california$fit)$stanfit)$summary
+california_summary[,9:10]
+```
+
+```{r}
+file_list <- list.files(path= "/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1")
+file_list<- file_list[-2]
+file_list
+```
+
+```{r}
+long_state <- c("Alabama", "Arizona", "Arkansas", "California", "Colorado", "Connecticut",
+                "Delaware", "Florida", "Georgia", "Idaho", "Illinois","Indiana","Iowa", "Kansas",
+                "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan",
+                "Minnesota", "Mississippi", "Missouri","Montana", "Nebraska", "Nevada","New Hampshire","New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+                "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
+                "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington",
+                "West Virginia","Wisconsin", "Wyoming")
+```
+
+
+```{r}
+for (i in seq(1:48)){
+  path <- paste0("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/", file_list[i])
+  model <- readRDS(path)
+  
+  model_rt <- posterior_rt(model$fit)
+  model_summary <- summary((model$fit)$stanfit)$summary
+  index <- (rownames(model_summary)=="R|rw(time = week)[45,all]")
+  color_scheme_set("mix-blue-red")
+
+  
+  mcmc_trace((model$fit)$stanfit, par = rownames(model_summary)[index], 
+             transformations = "exp")+
+  ggtitle(long_state[i])+
+  theme_bw()+
+  theme(text = element_text(family = "sans"),
+        plot.title = element_text(hjust = 0.5, size = 15))+
+  labs(x = "Iteration", y = "Rt- Week 45")
+  ggsave(paste0(long_state[i],"_traceplot.pdf"), height = 4, scale = 1)
+  
+}
+
+```
+richardson, nemaha, pawnee, johnson, otoe, gage, dodge, sauners, cass Nebraska 83 
+Ohio 45
+
+```{r}
+santa_barbara<- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Santa_Barbara_County_CA_3572195[5].pbs.rds")
+```
+
+```{r}
+dallas <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Dallas_County_TX_3572195[42].pbs.rds")
+```
+
+```{r}
+nebraska83 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Group_83_NE_3572195[26].pbs.rds")
+```
+
+```{r}
+ohio45 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Group_45_OH_3572195[34].pbs.rds")
+```
+
+```{r}
+santa_barbara_rt <- posterior_rt(santa_barbara$fit)
+  santa_barbara_summary <- summary((santa_barbara$fit)$stanfit)$summary
+  index <- (rownames(santa_barbara_summary)=="R|rw(time = week)[45,all]")
+  
+  color_scheme_set("mix-blue-red")
+  mcmc_trace((santa_barbara$fit)$stanfit, par = rownames(santa_barbara_summary)[index], 
+             transformations = "exp")+
+  theme_bw()+
+  theme(text = element_text(family = "sans"),
+        plot.title = element_text(hjust = 0.5, size = 15))+
+  labs(x = "Iteration", y = "Rt- Week 45")
+  ggsave(paste0("santa_barbara","_traceplot.pdf"), height = 4, scale = 1)
+```
+
+```{r}
+dallas_rt <- posterior_rt(dallas$fit)
+  dallas_summary <- summary((dallas$fit)$stanfit)$summary
+  index <- (rownames(dallas_summary)=="R|rw(time = week)[45,all]")
+  
+  color_scheme_set("mix-blue-red")
+  mcmc_trace((dallas$fit)$stanfit, par = rownames(dallas_summary)[index], 
+             transformations = "exp")+
+  theme_bw()+
+  theme(text = element_text(family = "sans"),
+        plot.title = element_text(hjust = 0.5, size = 15))+
+  labs(x = "Iteration", y = "Rt- Week 45")
+  ggsave(paste0("dallas","_traceplot.pdf"), height = 4, scale = 1)
+```
+
+```{r}
+nebraska83_rt <- posterior_rt(nebraska83$fit)
+  nebraska83_summary <- summary((nebraska83$fit)$stanfit)$summary
+  index <- (rownames(nebraska83_summary)=="R|rw(time = week)[45,all]")
+  
+  color_scheme_set("mix-blue-red")
+  mcmc_trace((nebraska83$fit)$stanfit, par = rownames(nebraska83_summary)[index], 
+             transformations = "exp")+
+  theme_bw()+
+  theme(text = element_text(family = "sans"),
+        plot.title = element_text(hjust = 0.5, size = 15))+
+  labs(x = "Iteration", y = "Rt- Week 45")
+  ggsave(paste0("nebraska83","_traceplot.pdf"), height = 4, scale = 1)
+```
+
+```{r}
+ohio45_rt <- posterior_rt(ohio45$fit)
+  ohio45_summary <- summary((ohio45$fit)$stanfit)$summary
+  index <- (rownames(ohio45_summary)=="R|rw(time = week)[45,all]")
+  
+  color_scheme_set("mix-blue-red")
+  mcmc_trace((ohio45$fit)$stanfit, par = rownames(ohio45_summary)[index], 
+             transformations = "exp")+
+  theme_bw()+
+  theme(text = element_text(family = "sans"),
+        plot.title = element_text(hjust = 0.5, size = 15))+
+  labs(x = "Iteration", y = "Rt- Week 45")
+  ggsave(paste0("ohio45","_traceplot.pdf"), height = 4, scale = 1)
+```
+
+```{r}
+convergence_states_week45 <- data.frame(matrix(ncol = 3, nrow = 48))
+convergence_states_week45[,1]<- long_state
+colnames(convergence_states_week45)<- c("State", "Effective Sample Size", "Rhat")
+```
+
+
+```{r}
+for (i in seq(1:48)){
+  path <- paste0("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/", file_list[i])
+  model <- readRDS(path)
+  
+  model_rt <- posterior_rt(model$fit)
+  model_summary <- summary((model$fit)$stanfit)$summary
+  index <- (rownames(model_summary)=="R|rw(time = week)[45,all]")
+  convergence_states_week45[i,2:3] <- model_summary[,9:10][index]
+}
+
+```
+
+```{r}
+santa_barbara_names <- rownames(santa_barbara_summary)
+santa_barbara_names <- santa_barbara_names[-1]
+santa_barbara_names <- santa_barbara_names[1:(length(santa_barbara_names)-6)]
+santa_barbara_weeks <- (67-length(santa_barbara_names)):66
+santa_barbara_df<- data.frame(matrix(ncol = 3, nrow = length(santa_barbara_weeks)))
+colnames(santa_barbara_df)<- c("Week", "ESS", "Rhat")
+santa_barbara_df$Week <- santa_barbara_weeks
+santa_barbara_df[,2]<- as.numeric(santa_barbara_summary[2: (length(santa_barbara_weeks)+1), 9])
+santa_barbara_df[,3]<- as.numeric(santa_barbara_summary[2: (length(santa_barbara_weeks)+1), 10])
+```
+
+```{r}
+dallas_names <- rownames(dallas_summary)
+dallas_names <- dallas_names[-1]
+dallas_names <- dallas_names[1:(length(dallas_names)-6)]
+dallas_weeks <- (67-length(dallas_names)):66
+dallas_df<- data.frame(matrix(ncol = 3, nrow = length(dallas_weeks)))
+colnames(dallas_df)<- c("Week", "ESS", "Rhat")
+dallas_df$Week <- dallas_weeks
+dallas_df[,2]<- as.numeric(dallas_summary[2: (length(dallas_weeks)+1), 9])
+dallas_df[,3]<- as.numeric(dallas_summary[2: (length(dallas_weeks)+1), 10])
+```
+
+```{r}
+nebraska83_names <- rownames(nebraska83_summary)
+nebraska83_names <- nebraska83_names[-1]
+nebraska83_names <- nebraska83_names[1:(length(nebraska83_names)-6)]
+nebraska83_weeks <- (67-length(nebraska83_names)):66
+nebraska83_df<- data.frame(matrix(ncol = 3, nrow = length(nebraska83_weeks)))
+colnames(nebraska83_df)<- c("Week", "ESS", "Rhat")
+nebraska83_df$Week <- nebraska83_weeks
+nebraska83_df[,2]<- as.numeric(nebraska83_summary[2: (length(nebraska83_weeks)+1), 9])
+nebraska83_df[,3]<- as.numeric(nebraska83_summary[2: (length(nebraska83_weeks)+1), 10])
+```
+
+```{r}
+ohio45_names <- rownames(ohio45_summary)
+ohio45_names <- ohio45_names[-1]
+ohio45_names <- ohio45_names[1:(length(ohio45_names)-6)]
+ohio45_weeks <- (67-length(ohio45_names)):66
+ohio45_df<- data.frame(matrix(ncol = 3, nrow = length(ohio45_weeks)))
+colnames(ohio45_df)<- c("Week", "ESS", "Rhat")
+ohio45_df$Week <- ohio45_weeks
+ohio45_df[,2]<- as.numeric(ohio45_summary[2: (length(ohio45_weeks)+1), 9])
+ohio45_df[,3]<- as.numeric(ohio45_summary[2: (length(ohio45_weeks)+1), 10])
+```
+
+```{r}
+ggplot()+
+  geom_line(data= santa_barbara_df, aes (x= Week, y = Rhat, color = "Santa Barbara, California"))+
+  geom_line(data = dallas_df, aes (x= Week, y = Rhat, color = "Dallas, Texas"))+
+  geom_line(data = nebraska83_df, aes (x= Week, y = Rhat, color = "Group, Nebraska"))+
+  geom_line(data = ohio45_df, aes (x= Week, y = Rhat, color = "Group, Ohio"))+
+  scale_color_manual(values=c("#F8766D", "#00BFC4", "#C77CFF", "#529EFF" ))+
+  theme_bw()+
+  labs(color = "County")
+
+ggsave("rhatcountyplot.pdf", height = 4, scale = 1)
+```
+
+```{r}
+file_list_county <- list.files(path= "/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6")
+```
+
+```{r}
+short_file_list <- file_list_county[1:400]
+numbers <- 1:400
+index <- numbers%%2 ==0
+file_list_final <- c(short_file_list[index],file_list_county[401])
+
+short_file_list <- file_list_county[402:415]
+numbers <- 1:14
+index <- numbers%%2 ==0
+file_list_final <- c(file_list_final, short_file_list[index], file_list_county[416:418])
+
+short_file_list <- file_list_county[419:1594]
+numbers <- 1:1176
+index <- numbers%%2 ==0
+
+file_list_final <- c(file_list_final, short_file_list[index])
+```
+
+
+```{r}
+convergence_county_week45 <- data.frame(matrix(ncol = 3, nrow = 799))
+colnames(convergence_county_week45) <- c("File", "ESS", "Rhat")
+convergence_county_week45$File <- file_list_final
+```
+
+```{r}
+for (i in seq(1:799)){
+  print(i)
+  path <- paste0("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/", file_list_final[i])
+  model <- readRDS(path)
+  
+  model_summary <- summary((model$fit)$stanfit)$summary
+  index <- (rownames(model_summary)=="R|rw(time = week)[45,all]")
+  convergence_county_week45[i,2:3] <- model_summary[,9:10][index]
+}
+```
+
+

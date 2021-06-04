@@ -11,18 +11,21 @@ print(job.index)
 job.id <- Sys.getenv("PBS_JOBID")
 
 
-short_state <- c("AL", "AK","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY",
-                 "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
-                 "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY") 
+#short_state <- c("AL", "AK","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY",
+           #      "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
+           #      "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY") 
 
-long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut",
-                "delaware", "florida", "georgia", "idaho", "illinois","indiana","iowa", "kansas",
-                "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan",
-                "minnesota", "mississippi", "missouri","montana", "nebraska", "nevada", "new_hampshire",
-                "new_jersey", "new_mexico", "new_york", "north_carolina", "north_dakota", "ohio",
-                "oklahoma", "oregon", "pennsylvania", "rhode_island", "south_carolina",
-                "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington",
-                "west_virginia","wisconsin", "wyoming")
+#long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut",
+        #        "delaware", "florida", "georgia", "idaho", "illinois","indiana","iowa", "kansas",
+      #        "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan",
+         #       "minnesota", "mississippi", "missouri","montana", "nebraska", "nevada", "new_hampshire",
+         #       "new_jersey", "new_mexico", "new_york", "north_carolina", "north_dakota", "ohio",
+          #      "oklahoma", "oregon", "pennsylvania", "rhode_island", "south_carolina",
+           #     "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington",
+            #    "west_virginia","wisconsin", "wyoming")
+
+short_state <- c("IN", "NY", "VA", "KS")
+long_state <- c("indiana", "new_york", "virginia", "kansas")
 
 
 this.short <- short_state[job.index]
@@ -77,7 +80,7 @@ args$rt <- epirt(
 args$algorithm <- "sampling"
 args$init_run <- TRUE
 args$inf <- inf
-args$iter <- 2.5e3
+args$iter <- 2e4
 args$chains <- 4
 args$seed <- 12345
 
@@ -96,7 +99,7 @@ setwd("..")
 parent <- getwd()
 setwd(wd)
 
-saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/state2/", filename))
+saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/convergence_check/", filename))
 
 
 rt <- posterior_rt(res$fit)
@@ -106,4 +109,4 @@ rt_df <- data.frame("Date"= rt$time, "Rt_medians"= rt_medians)
 
 
 filename2 <- paste0(this.long,"_",job.id,"_medians.rds")
-saveRDS(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/state2/", filename2))
+saveRDS(rt_medians, file =  paste0(parent,"/Outputs/rt_medians/convergence_check/", filename2))

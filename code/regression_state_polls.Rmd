@@ -205,6 +205,27 @@ poll_forecasts_trump$`11/4/2020`<- trump_data$VOTES_2020*100
 ```
 
 ```{r}
+correcting_bias <- rowMeans(poll_forecasts_trump[,2:157])
+correcting_bias
+poll_forecasts_trump$`11/4/2020`
+
+mean(poll_forecasts_trump$`11/4/2020`-correcting_bias)
+poll_forecasts_trump$`11/3/2020`
+mean(poll_forecasts_trump$`11/4/2020`- poll_forecasts_trump$`11/3/2020`)
+poll_forecasts_trump$state
+```
+
+```{r}
+correction <- poll_forecasts_trump$`11/4/2020`/ poll_forecasts_trump$`11/3/2020`
+corrected_poll_forecast <- poll_forecasts_trump
+corrected_poll_forecast[,2:157] <-  poll_forecasts_trump[,2:157]* correction
+mean(poll_forecasts_trump$`11/4/2020`-rowMeans(corrected_poll_forecast[,2:157]))
+mean(poll_forecasts_trump$`11/3/2020`-rowMeans(corrected_poll_forecast[,2:157]))
+
+```
+
+
+```{r}
 med_df_cut <- med_df[,c(1,77:380)]
 med_df_cut<- subset(med_df_cut, state!= "alaska")
 med_df_cut[,2:305] <- lapply(med_df_cut[,2:305],as.numeric)
