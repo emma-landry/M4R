@@ -1,0 +1,251 @@
+---
+title: "Infections Deaths Plots"
+author: "Emma Landry"
+date: "6/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+library(readxl)
+library(rstan)
+library(ggplot2)
+library(GGally)
+library(reshape2) #for melt
+library(urbnmapr)
+library(tidyverse)
+library(rstanarm)
+library(bayesplot)
+library(cowplot)
+```
+
+
+```{r}
+data <- readRDS(here::here("data", "covid", "prepped_data_Mar21.rds"))
+```
+
+
+```{r}
+santa_barbara<- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Santa_Barbara_County_CA_3572195[5].pbs.rds")
+```
+
+```{r}
+dallas <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Dallas_County_TX_3572195[42].pbs.rds")
+```
+
+```{r}
+nebraska83 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Group_83_NE_3572195[26].pbs.rds")
+```
+
+```{r}
+ohio45 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Group_45_OH_3572195[34].pbs.rds")
+```
+
+```{r}
+santa_barbara_rt <- posterior_rt(santa_barbara$fit)
+
+dallas_rt <- posterior_rt(dallas$fit)
+
+nebraska83_rt <- posterior_rt(nebraska83$fit)
+
+ohio45_rt <- posterior_rt(ohio45$fit)
+```
+
+```{r}
+plot_rt(santa_barbara$fit, date_breaks = "4 weeks")
+ggsave("santa_barbara_rt.pdf", height = 4, width = 6)
+```
+
+```{r}
+plot_obs(santa_barbara$fit, type="deaths", date_breaks = "4 weeks")
+ggsave("santa_barbara_deaths.pdf", height = 4, width = 6)
+```
+
+
+```{r}
+plot_rt(dallas$fit, date_breaks = "4 weeks")
+ggsave("dallas_rt.pdf", height = 4, width = 6)
+```
+
+```{r}
+plot_obs(dallas$fit, type="deaths", date_breaks = "4 weeks")
+ggsave("dallas_deaths.pdf", height = 4, width = 6)
+```
+
+
+```{r}
+plot_rt(nebraska83$fit, date_breaks = "4 weeks")
+ggsave("nebraska83_rt.pdf", height = 4, width = 6)
+```
+
+```{r}
+plot_obs(nebraska83$fit, type="deaths", date_breaks = "4 weeks")
+ggsave("nebraska83_deaths.pdf", height = 4, width = 6)
+```
+
+
+```{r}
+plot_rt(ohio45$fit, date_breaks = "4 weeks")
+ggsave("ohio45_rt.pdf", height = 4, width = 6)
+```
+
+```{r}
+plot_obs(ohio45$fit, type="deaths", date_breaks = "4 weeks")
+ggsave("ohio45_deaths.pdf", height = 4, width = 6)
+```
+
+```{r}
+california_data <- filter(data, state == "CA")
+santa_barbara_data <- filter(california_data, countyFIPS == "6083")
+
+cases_no_NA = santa_barbara_data$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- santa_barbara_data$date[idx] - 7
+  santa_barbara_data <- filter(santa_barbara_data, date >= start_date)
+  
+  santa_barbara_data <- mutate(santa_barbara_data, week = as.integer(format(date, "%V")))
+  new_year <- min(which(santa_barbara_data$week ==1))
+  santa_barbara_data[new_year:nrow(santa_barbara_data),]$week <- santa_barbara_data[new_year:nrow(santa_barbara_data),]$week +53
+```
+
+```{r}
+p<- plot_infections(santa_barbara$fit, date_breaks = "4 weeks")+
+  geom_bar(data =santa_barbara_data, aes(date, cases/12), stat = "identity", na.rm = TRUE , color= "coral4", fill ="coral4",size =0.1 , width = 0.05, alpha= 0.45, position = "identity")+
+ scale_y_continuous(sec.axis = sec_axis( trans=~.*12, name="Observed cases"))
+p1 <- p$layers[[1]]
+p2 <- p$layers[[2]]
+p$layers<- c(p2,p1)
+p
+ggsave("santa_barbara_inf.pdf", height = 4, width = 6)
+```
+
+```{r}
+texas_data <- filter(data, state == "TX")
+dallas_data <- filter(texas_data, countyFIPS == "48113")
+
+cases_no_NA = dallas_data$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- dallas_data$date[idx] - 7
+  dallas_data <- filter(dallas_data, date >= start_date)
+  
+  dallas_data <- mutate(dallas_data, week = as.integer(format(date, "%V")))
+  new_year <- min(which(dallas_data$week ==1))
+  dallas_data[new_year:nrow(dallas_data),]$week <- dallas_data[new_year:nrow(dallas_data),]$week +53
+```
+
+```{r}
+p<- plot_infections(dallas$fit, date_breaks = "4 weeks")+
+  geom_bar(data =dallas_data, aes(date, cases/100), stat = "identity", na.rm = TRUE , color= "coral4", fill ="coral4", size =0.1 , width = 0.05, alpha= 0.45, position = "identity")+
+ scale_y_continuous(sec.axis = sec_axis( trans=~.*100, name="Observed cases"))
+p1 <- p$layers[[1]]
+p2 <- p$layers[[2]]
+p$layers<- c(p2,p1)
+p
+ggsave("dallas_inf.pdf", height = 4, width = 6)
+```
+
+
+```{r}
+nebraska_groups <- readRDS(here::here("data", "grouped_counties", "nebraska_groups.rds"))
+fips <- unlist(nebraska_groups$county_fips[4])
+
+nebraska_data <- filter(data, state == "NE")
+
+nebraska83_data <- filter(nebraska_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=nebraska83_data, FUN=sum, na.action = NULL)
+    nebraska83_data <- nebraska83_data[1:435,]
+    nebraska83_data <- subset(nebraska83_data, select = -c(countyFIPS, date,cases, deaths, state))
+    nebraska83_data <- cbind(nebraska83_data, tmp)
+    n <- nrow (nebraska83_data)
+    nebraska83_data$county <- rep(nebraska_groups$county[4], n)
+
+cases_no_NA = nebraska83_data$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- nebraska83_data$date[idx] - 7
+  nebraska83_data <- filter(nebraska83_data, date >= start_date)
+  
+  nebraska83_data <- mutate(nebraska83_data, week = as.integer(format(date, "%V")))
+  new_year <- min(which(nebraska83_data$week ==1))
+  nebraska83_data[new_year:nrow(nebraska83_data),]$week <- nebraska83_data[new_year:nrow(nebraska83_data),]$week +53
+```
+
+
+```{r}
+p<- plot_infections(nebraska83$fit, date_breaks = "4 weeks")+
+  geom_bar(data =nebraska83_data, aes(date, cases/17), stat = "identity", na.rm = TRUE , color= "coral4", fill ="coral4", size =0.1 , width = 0.05, alpha= 0.45, position = "identity")+
+ scale_y_continuous(sec.axis = sec_axis( trans=~.*17, name="Observed cases"))
+p1 <- p$layers[[1]]
+p2 <- p$layers[[2]]
+p$layers<- c(p2,p1)
+p
+ggsave("nebraska83_inf.pdf", height = 4, width = 6)
+```
+
+```{r}
+ohio_groups <- readRDS(here::here("data", "grouped_counties", "ohio_groups.rds"))
+fips <- unlist(ohio_groups$county_fips[24])
+
+ohio_data <- filter(data, state == "OH")
+
+ohio45_data <- filter(ohio_data, countyFIPS %in% fips)
+    tmp <- aggregate(cbind(cases, deaths) ~ date, data=ohio45_data, FUN=sum, na.action = NULL)
+    ohio45_data <- ohio45_data[1:435,]
+    ohio45_data <- subset(ohio45_data, select = -c(countyFIPS, date,cases, deaths, state))
+    ohio45_data <- cbind(ohio45_data, tmp)
+    n <- nrow (ohio45_data)
+    ohio45_data$county <- rep(ohio_groups$county[24], n)
+
+cases_no_NA = ohio45_data$cases
+  cases_no_NA[is.na(cases_no_NA)]=0
+  idx <- which(cumsum(cases_no_NA) >= 10)[1]
+  
+  if (length(idx) == 0) {
+    stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
+  }
+  
+  start_date <- ohio45_data$date[idx] - 7
+  ohio45_data <- filter(ohio45_data, date >= start_date)
+  
+  ohio45_data <- mutate(ohio45_data, week = as.integer(format(date, "%V")))
+  new_year <- min(which(ohio45_data$week ==1))
+  ohio45_data[new_year:nrow(ohio45_data),]$week <- ohio45_data[new_year:nrow(ohio45_data),]$week +53
+```
+
+
+```{r}
+p<- plot_infections(ohio45$fit, date_breaks = "4 weeks")+
+  geom_bar(data =ohio45_data, aes(date, cases/17), stat = "identity", na.rm = TRUE , color= "coral4", fill ="coral4", size =0.1 , width = 0.05, alpha= 0.45, position = "identity")+
+ scale_y_continuous(sec.axis = sec_axis( trans=~.*17, name="Observed cases"))
+p1 <- p$layers[[1]]
+p2 <- p$layers[[2]]
+p$layers<- c(p2,p1)
+p
+ggsave("ohio45_inf.pdf", height = 4, width = 6)
+```
+
+

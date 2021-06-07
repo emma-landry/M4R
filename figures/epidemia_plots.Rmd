@@ -23,6 +23,7 @@ library(urbnmapr)
 library(tidyverse)
 library(rstanarm)
 library(bayesplot)
+library(cowplot)
 ```
 
 ELECTIONS ARE WEEK 45
@@ -136,6 +137,141 @@ nebraska83 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Group_
 
 ```{r}
 ohio45 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Group_45_OH_3572195[34].pbs.rds")
+```
+
+```{r}
+newyork_1 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/new_york_3395374[31].pbs.rds")
+```
+
+
+```{r}
+indiana_1 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/indiana_3395374[13].pbs.rds")
+```
+
+```{r}
+kansas_1 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/kansas_3395374[15].pbs.rds")
+```
+
+```{r}
+virginia_1 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/state1/virginia_3395374[45].pbs.rds")
+```
+
+```{r}
+newyork_2 <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/convergence_check/new_york_3711248[2].pbs.rds")
+```
+
+```{r}
+indiana_2<-  readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/convergence_check/indiana_3711248[1].pbs.rds")
+```
+
+```{r}
+kansas_2 <-  readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/convergence_check/kansas_3711248[4].pbs.rds")
+```
+
+```{r}
+virginia_2 <-  readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/convergence_check/virginia_3711248[3].pbs.rds")
+```
+
+
+```{r}
+santa_barbara_rt <- posterior_rt(santa_barbara$fit)
+santa_barbara_summary <- summary((santa_barbara$fit)$stanfit)$summary
+
+dallas_rt <- posterior_rt(dallas$fit)
+dallas_summary <- summary((dallas$fit)$stanfit)$summary 
+
+nebraska83_rt <- posterior_rt(nebraska83$fit)
+nebraska83_summary <- summary((nebraska83$fit)$stanfit)$summary
+
+ohio45_rt <- posterior_rt(ohio45$fit)
+ohio45_summary <- summary((ohio45$fit)$stanfit)$summary
+```
+
+```{r}
+index <- (rownames(santa_barbara_summary)=="R|rw(time = week)[45,all]")
+santa_barbara_summary[,9:10][index]
+
+index <- (rownames(dallas_summary)=="R|rw(time = week)[45,all]")
+dallas_summary[,9:10][index]
+
+index <- (rownames(nebraska83_summary)=="R|rw(time = week)[45,all]")
+nebraska83_summary[,9:10][index]
+
+index <- (rownames(ohio45_summary)=="R|rw(time = week)[45,all]")
+ohio45_summary[,9:10][index]
+```
+
+
+
+```{r}
+newyork_1_rt <- posterior_rt(newyork_1$fit)
+newyork_1_summary <- summary((newyork_1$fit)$stanfit)$summary
+
+indiana_1_rt <- posterior_rt(indiana_1$fit)
+indiana_1_summary <- summary((indiana_1$fit)$stanfit)$summary 
+
+kansas_1_rt <- posterior_rt(kansas_1$fit)
+kansas_1_summary <- summary((kansas_1$fit)$stanfit)$summary
+
+virginia_1_rt <- posterior_rt(virginia_1$fit)
+virginia_1_summary <- summary((virginia_1$fit)$stanfit)$summary
+```
+
+
+
+```{r}
+index <- (rownames(newyork_1_summary)=="R|rw(time = week)[45,all]")
+newyork_1_summary[,9:10][index]
+exp(newyork_1_summary[index][c(4,6,8)])
+
+index <- (rownames(indiana_1_summary)=="R|rw(time = week)[45,all]")
+indiana_1_summary[,9:10][index]
+exp(indiana_1_summary[index][c(4,6,8)])
+
+index <- (rownames(kansas_1_summary)=="R|rw(time = week)[45,all]")
+kansas_1_summary[,9:10][index]
+exp(kansas_1_summary[index][c(4,6,8)])
+
+
+index <- (rownames(virginia_1_summary)=="R|rw(time = week)[45,all]")
+virginia_1_summary[,9:10][index]
+exp(virginia_1_summary[index][c(4,6,8)])
+
+```
+
+
+```{r}
+#newyork_2_rt <- posterior_rt(newyork_2$fit)
+#newyork_2_summary <- summary((newyork_2$fit)$stanfit)$summary
+
+#indiana_2_rt <- posterior_rt(indiana_2$fit)
+#indiana_2_summary <- summary((indiana_2$fit)$stanfit)$summary 
+
+kansas_2_rt <- posterior_rt(kansas_2$fit)
+kansas_2_summary <- summary((kansas_2$fit)$stanfit)$summary
+
+#virginia_2_rt <- posterior_rt(virginia_2$fit)
+#virginia_2_summary <- summary((virginia_2$fit)$stanfit)$summary
+```
+
+
+```{r}
+#index <- (rownames(newyork_2_summary)=="R|rw(time = week)[45,all]")
+#newyork_2_summary[,9:10][index]
+#exp(newyork_2_summary[index][c(4,6,8)])
+
+
+#index <- (rownames(indiana_2_summary)=="R|rw(time = week)[45,all]")
+#indiana_2_summary[,9:10][index]
+#exp(indiana_2_summary[index][c(4,6,8)])
+
+index <- (rownames(kansas_2_summary)=="R|rw(time = week)[45,all]")
+kansas_2_summary[,9:10][index]
+exp(kansas_2_summary[index][c(4,6,8)])
+
+#index <- (rownames(virginia_2_summary)=="R|rw(time = week)[45,all]")
+#virginia_2_summary[,9:10][index]
+#exp(virginia_2_summary[index][c(4,6,8)])
 ```
 
 ```{r}
@@ -321,14 +457,73 @@ for (i in seq(1:799)){
 ```
 
 ```{r}
-for (i in seq(1:799)){
+for (i in 486:799){
   print(i)
+  path <- paste0("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/", file_list_final[i])
+  model <- readRDS(path)
+  
+  model_summary <- summary((model$fit)$stanfit)$summary
+  index <- (rownames(model_summary)=="R|rw(time = week)[45,all]")
+  convergence_county_week45[i,2:3] <- model_summary[,9:10][index]
   
 }
 ```
 
 
+```{r}
+ess_hist2<- convergence_county_week45 %>% 
+  mutate(x_new = ifelse(ESS > 3000, 3000, ESS)) %>% 
+  ggplot(aes(x_new)) +
+  geom_histogram(binwidth = 50, col = "black", fill = "#F8766D")+
+  scale_x_continuous(breaks = c(0, 500, 1000, 1500, 2000, 2500, 3000),
+    labels = c("0", "500", "1000", "1500", "2000", "2500", "3000+"))+
+  labs (x = "Effective Sample Size", y= "Count")+
+  theme_bw()+
+  geom_vline(xintercept = 100, linetype = "dashed", color = "black")
+  
+```
 
 
+```{r}
+ess_hist1<- ggplot(data= convergence_county_week45, aes (x= ESS))+
+  geom_histogram(binwidth = 100, color = 'black', fill="#F8766D" )+
+  labs (x = "Effective Sample Size", y= "Count")+
+  theme_bw()+
+  geom_vline(xintercept = 100, linetype = "dashed", color = "black")
+```
 
+
+```{r}
+title <- ggdraw() + draw_label("Week 45 Rt ESS, for the 797 counties", fontface='bold')
+p<- plot_grid(ess_hist1, ess_hist2, ncol = 2, nrow = 1)
+#plot_grid(title, p, ncol =1,rel_heights=c(0.1, 1))
+p
+ggsave("ess_hist.pdf", height = 4, width = 10)
+```
+
+
+```{r}
+rhat_hist1<- ggplot(data= convergence_county_week45, aes (x= Rhat))+
+  geom_histogram(color = 'black', fill="#F8766D" )+
+  labs (x = "Rhat", y= "Count")+
+  theme_bw()
+```
+
+
+```{r}
+rhat_hist2<- convergence_county_week45 %>% 
+  mutate(x_new = ifelse(Rhat > 1.05, 1.05, Rhat)) %>% 
+  ggplot(aes(x_new)) +
+  geom_histogram(col = "black", fill = "#F8766D")+
+  labs (x = "Rhat", y= "Count")+
+  theme_bw()
+```
+
+```{r}
+title1 <- ggdraw() + draw_label("Week 45 Rt Rhat, for the 797 counties", fontface='bold')
+p1<- plot_grid(rhat_hist1, rhat_hist2, ncol = 2, nrow = 1)
+p1
+#plot_grid(title, p1, ncol =1,rel_heights=c(0.1, 1))
+ggsave("rhat_hist.pdf", height = 4, width = 10)
+```
 

@@ -22,6 +22,7 @@ library(reshape2) #for melt
 library(urbnmapr)
 library(tidyverse)
 library(rstanarm)
+library(RColorBrewer)
 ```
 
 ```{r}
@@ -40,11 +41,11 @@ long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "color
 ```
 
 ```{r}
-jobid <- "3394181"
+jobid <- "3572195"
 ```
 
 ```{r}
-epifit <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Baldwin_County_AL_3394181[1].pbs.rds")
+epifit <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Baldwin_County_AL_3572195[1].pbs.rds")
 rt <- posterior_rt(epifit$fit)
 times<- rt$time
 times <- tail(times, 350)
@@ -76,9 +77,8 @@ for (i in seq(1:49)){
   N <- nrow(groups)
   for (j in seq(1:N)){
     print(count)
-    if( j==50)  break;
     filename <- paste0(gsub("\\s", "_", groups$county[j]), "_", this.short,"_",jobid,"[",i,"].pbs","_medians.rds")
-    path <- paste0("/Volumes/evl17/home/Msc/Outputs/rt_medians/run6/", filename)
+    path <- paste0("/Volumes/evl17/home/Msc/Outputs/rt_medians/run7/", filename)
     medians <- read.csv(path)
     medians_end <- tail(medians, 350)
     vec <- c(this.long, groups$county[j], as.numeric(medians_end$x))
@@ -100,7 +100,7 @@ new_pres_data <- subset(new_pres_data, state_name != "Hawaii" & state_name != "D
 ```
 
 ```{r}
-voting_df <- data.frame(matrix(ncol = 3, nrow = 792))
+voting_df <- data.frame(matrix(ncol = 3, nrow = 796))
 colnames(voting_df) <- c("state", "county", "Trump")
 ```
 
@@ -117,7 +117,6 @@ for (i in seq(1:49)){
   N <- nrow(groups)
   for (j in seq(1:N)){
     print(count)
-    if( j==50)  break;
     if(i ==2 ) {
       break}
     
@@ -153,9 +152,9 @@ vax$`FIPS Code`[index]<- 46102
 vax <- subset(vax, `FIPS Code` != 51515) #Bedford city is part of Bedford
 ```
 
-
+Note this dataset not in repo because too big, same source as other pop, just this one divides age groups
 ```{r}
-pop <- read.csv(here::here("data", "vaccination_hesitancy", "cc-est2019-alldata.csv"))
+pop <- read.csv("/Users/emmalandry/Documents/Imperial/Year 4/M4R/vaccination/cc-est2019-alldata.csv")
 ```
 
 ```{r}
@@ -192,7 +191,7 @@ pop_df<- subset(pop_df, STNAME != "District of Columbia" & STNAME != "Hawaii")
 ```
 
 ```{r}
-hesitancy_df <-data.frame(matrix(ncol = 4, nrow = 792))
+hesitancy_df <-data.frame(matrix(ncol = 4, nrow = 796))
 colnames(hesitancy_df) <- c("state", "county", "Hes", "Strong_hes")
 ```
 
@@ -208,7 +207,6 @@ for (i in seq(1:49)){
   N <- nrow(groups)
   for (j in seq(1:N)){
     print(count)
-    if( j==50)  break;
     if(i ==2 ) {
       break}
     
@@ -322,11 +320,6 @@ colnames(all_medians_df)[154+ 13*4]
 ```
 
 ```{r}
-
-```
-
-
-```{r}
 plot(hes_coeffs)
 ```
 
@@ -346,12 +339,141 @@ pres_combined_data %>%
   geom_polygon(data = subset(states, state_name!= "Alaska" & state_name != "Hawaii"), mapping = aes(long, lat, group = group),
                fill = NA, color = "#ffffff") +
   coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
-  theme(legend.title = element_text(),
+  theme_void()+
+  theme(legend.title = element_text(hjust = 0.5, size = 14),
         legend.key.width = unit(.4, "in"),
         legend.position="top") +
   labs(fill = "Percentage Votes Trump")
 
+ggsave("county_votes_map.pdf", height = 5, scale = 1)
+
 ```
 
+
+```{r}
+dat_counties <- urbnmapr::counties
+dat_counties <- subset(dat_counties, state_name != "Alaska" & state_name != "Hawaii")
+dat_counties$county_fips <- as.numeric(as.character(dat_counties$county_fips))
+
+vax_data <- vax
+names <- colnames(vax_data)
+names[1]<- "county_fips"
+names[3]<- "hesitant"
+names[4]<- "strong_hesitant"
+
+colnames(vax_data)<- names
+vax_data$county_fips <- as.numeric(as.character(vax_data$county_fips))
+vax_combined_data <- left_join(dat_counties, vax_data, by = "county_fips")
+
+vax_combined_data %>%
+  ggplot(aes(long, lat, group = group, fill = hesitant)) +
+  geom_polygon(color = NA) +
+ scale_fill_gradient2(labels = scales::percent, guide = guide_colourbar(direction = "horizontal",title.position = "top"),low = "dodgerblue4", mid = "white", high = "red", midpoint = 0.15) +
+  geom_polygon(data = subset(states, state_name!= "Alaska" & state_name != "Hawaii"), mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme_void()+
+  theme(legend.title = element_text(hjust = 0.5, size = 14),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") +
+  labs(fill = "Hesitancy")
+
+ggsave("county_hesitancy_map.pdf", height = 5, scale = 1)
+
+```
+```{r}
+rt_election_day<- all_medians_df[,205]
+```
+
+```{r}
+degrouped_df_rt <- data.frame(matrix(ncol = 3, nrow = 3108))
+colnames(degrouped_df_rt)<- c("county_fips", "Rt", "grouping")
+```
+
+
+```{r}
+count_long <- 1
+count_short <- 1
+for (i in seq(1:49)){
+  this.short <- short_state[i]
+  this.long <- long_state[i]
+  print(this.long)
+  
+  group.file.name<- paste0(this.long, "_groups.rds")
+  groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
+  N <- nrow(groups)
+  for (j in seq(1:N)){
+    if(i ==2 ) {
+      break}
+    
+    fips <- unlist(groups$county_fips[j])
+    n <- length(fips)
+    
+    if (n==1){
+    degrouped_df_rt[count_long, 1] <- fips
+    degrouped_df_rt[count_long, 2] <-  all_medians_df[count_short,205]
+    degrouped_df_rt[count_long, 3] <-  count_short
+    count_long<- count_long+1
+    
+  }else{
+    for (m in seq(1:n)){
+      degrouped_df_rt[count_long, 1] <- fips[m]
+      degrouped_df_rt[count_long, 2] <-  all_medians_df[count_short,205]
+      degrouped_df_rt[count_long, 3] <-  count_short
+      count_long<- count_long+1
+    }
+    
+  }
+  count_short<- count_short+1
+  }
+}
+
+```
+```{r}
+dat_counties <- urbnmapr::counties
+dat_counties <- subset(dat_counties, state_name != "Alaska" & state_name != "Hawaii")
+dat_counties$county_fips <- as.numeric(as.character(dat_counties$county_fips))
+
+rt_elec <- degrouped_df_rt
+rt_elec$county_fips <- as.numeric(as.character(rt_elec$county_fips))
+rt_combined_data <- left_join(dat_counties, rt_elec, by = "county_fips")
+
+rt_combined_data %>%
+  ggplot(aes(long, lat, group = group, fill = Rt)) +
+  geom_polygon(color = NA) +
+ scale_fill_gradientn(guide = guide_colourbar(direction = "horizontal",title.position = "top", nbin = 10000),colours = c( "lightskyblue","dodgerblue4","lightpink", "firebrick3"), 
+                         values = scales::rescale(c(0.25, 1 - 0.00000000001, 1, 2.5))) +
+  geom_polygon(data = subset(states, state_name!= "Alaska" & state_name != "Hawaii"), mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme_void()+
+  theme(legend.title = element_text(hjust = 0.5, size = 14),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") +
+  labs(fill = "Rt on November 4, 2020")
+ggsave("county_rt_map.pdf", height = 5, scale = 1)
+```
+
+
+
+
+```{r}
+set.seed(1234)
+mycolors <- sample(colorRampPalette(brewer.pal(8, "Accent"))(796))
+
+
+ggplot(rt_combined_data, mapping = aes(long, lat, group = group, fill = as.factor(grouping))) +
+  geom_polygon(color = NA) +
+  geom_polygon(data = subset(states, state_name!= "Alaska" & state_name != "Hawaii"), mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme_void()+
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.5, "in"),
+        plot.title = element_text(hjust = 0.5, size = 18)) +
+  guides(fill= FALSE)+
+  scale_fill_manual(values = mycolors)
+ggsave("national_gp.pdf", height = 5, scale = 1)
+```
 
 
