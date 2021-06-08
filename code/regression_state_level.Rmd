@@ -139,6 +139,7 @@ for (i in seq(1:49)){
 }
 ```
 
+
 ```{r}
 min(meds)
 max(meds)
@@ -177,7 +178,8 @@ Times I am interested in:
 average_rt <- data.frame("STATE"= short_state,
                          "VALS1"= zeros,
                          "VALS2"= zeros,
-                         "VALS3"= zeros)
+                         "VALS3"= zeros,
+                         "election_day"= zeros)
 ```
 
 ```{r}
@@ -194,16 +196,19 @@ for (i in seq(1:49)){
   val1 <- mean(medians_end$Median[106:167])
   val2 <- mean(medians_end$Median[171:232])
   val3 <- mean(medians_end$Median[243:304])
+  val4<- medians_end$Median[232]
   
   if (i==1){
   average_rt$VALS1[i] <- val1
   average_rt$VALS2[i] <- val2
   average_rt$VALS3[i] <- val3
+  average_rt$election_day[i] <- val4
   }
   else{
     average_rt$VALS1[i-1] <- val1
     average_rt$VALS2[i-1] <- val2
     average_rt$VALS3[i-1] <- val3
+     average_rt$election_day[i-1] <- val4
   }
 }
 ```
@@ -217,16 +222,20 @@ features <- features[,-2]
 
 
 ```{r}
-pdf("ggpairstate.pdf", width = 15, height= 15, pointsize = 12)
-g<- ggpairs(features[,2:8])
-print(g)
-dev.off()
+#pdf("ggpairstate.pdf", width = 15, height= 15, pointsize = 12)
+g<- ggpairs(features[,2:8]) +theme_bw()
+g
+ggsave("ggpairstate.pdf", width = 16, height = 16)
+#print(g)
+#dev.off()
 ```
+
+
 ```{r}
 cor_matrix <- cor(features[,2:8])
 melted_cor <- melt(cor_matrix)
 
-pdf("correlation.pdf", width = 10, height= 10, pointsize = 40)
+#pdf("correlation.pdf", width = 10, height= 10, pointsize = 40)
 ggplot(data = melted_cor, aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile()+
   scale_fill_gradient2(high = "#F8766D", low = "#00BFC4", mid = "white", 
@@ -236,7 +245,7 @@ ggplot(data = melted_cor, aes(x=Var1, y=Var2, fill=value)) +
   ylab("")+
   theme_minimal()+
   theme(axis.text.x = element_text(angle = 270, vjust = 0.5, hjust=0))
-dev.off()
+#dev.off()
 
 ```
 
@@ -255,39 +264,46 @@ ccdf_labels <- ccdf_labels[-c(2,3, 10,13,14,23,43,51),]
 map_plots <- left_join(features, states_urbn, by = "STATE")
 map_plots <- left_join(map_plots, average_rt, by = "STATE")
 
-pdf("repvote.pdf", width = 15, height= 10, pointsize = 15)
 ggplot() +
-  geom_polygon(data= map_plots,mapping = aes(long, lat, group = group, fill = VOTES_2020*100),color = "#ffffff", size = 0.25) +
+  geom_polygon(data= map_plots,mapping = aes(long, lat, group = group, fill = VOTES_2020),color = "#ffffff", size = 0.25) +
+  scale_fill_gradient2(labels = scales::percent, guide = guide_colourbar(direction = "horizontal",title.position = "top"),low = "dodgerblue4", mid = "white", high = "red", midpoint = 0.5) +
   geom_text(data = ccdf_labels, aes(long, lat, label = state_abbv), size = 4) +  
   coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
-  labs(fill = "Republican Voting (%)")+
-  xlab("Longitude")+
-  ylab("Latitude")
-dev.off()
+  theme_void()+
+  theme(legend.title = element_text(hjust = 0.5, size = 14),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") +
+  labs(fill = "Percentage Votes Trump")
+ggsave("state_votes_map.pdf", height = 5, scale = 1)
 ```
 
 
 ```{r}
-pdf("hesitancy.pdf", width = 15, height= 10, pointsize = 15)
 ggplot() +
-  geom_polygon(data= map_plots,mapping = aes(long, lat, group = group, fill = HESIT*100),color = "#ffffff", size = 0.25) +
+  geom_polygon(data= map_plots,mapping = aes(long, lat, group = group, fill = HESIT),color = "#ffffff", size = 0.25) +
+   scale_fill_gradient2(labels = scales::percent, guide = guide_colourbar(direction = "horizontal",title.position = "top"),low = "dodgerblue4", mid = "white", high = "red", midpoint = 0.45) +
   geom_text(data = ccdf_labels, aes(long, lat, label = state_abbv), size = 4) +  
   coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
-  labs(fill = "Vaccination Hesitancy (%)")+
-  xlab("Longitude")+
-  ylab("Latitude")
-dev.off()
+  theme_void()+
+  theme(legend.title = element_text(hjust = 0.5, size = 14),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") +
+  labs(fill = "Vaccine Hesitancy")
+ggsave("state_hesitancy_map.pdf")
 ```
 ```{r}
-pdf("rt_map.pdf", width = 15, height= 10, pointsize = 15)
 ggplot() +
-  geom_polygon(data= map_plots,mapping = aes(long, lat, group = group, fill = VALS3),color = "#ffffff", size = 0.25) +
+  geom_polygon(data= map_plots,mapping = aes(long, lat, group = group, fill = election_day),color = "#ffffff", size = 0.25) +
+  scale_fill_gradientn(guide = guide_colourbar(direction = "horizontal",title.position = "top", nbin = 10000),colours = c( "lightskyblue","dodgerblue4","lightpink", "firebrick3"), 
+                         values = scales::rescale(c(0.93, 1 - 0.00000000001, 1, 2))) +
   geom_text(data = ccdf_labels, aes(long, lat, label = state_abbv), size = 4) +  
   coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
-  labs(fill = "Average Rt Nov. \n15 2020- Jan. 15 2020")+
-  xlab("Longitude")+
-  ylab("Latitude")
-dev.off()
+  labs(fill = "Rt Election Day")+
+  theme_void()+
+  theme(legend.title = element_text(hjust = 0.5, size = 14),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") 
+ggsave("state_rt_map.pdf", height =5, scale =1)
 ```
 
 
@@ -306,43 +322,36 @@ ggplot(matrix1, aes(x = VOTES_2020, y = VALS3)) +
   geom_point() +
   stat_smooth(method = "lm", col = "red")
 ```
-
 ```{r}
-lm2 <- lm (VALS3 ~ VOTES_2020+ CHANGE_2020, data = matrix1)
-summary(lm2)
+lm1 <- stan_lm (election_day ~ VOTES_2020, data = matrix1, prior = R2(0.5, what = "mean"))
+lm2 <- stan_lm (election_day ~ VOTES_2020+ CHANGE_2020, data = matrix1, prior = R2(0.5, what = "mean"))
+lm3 <- stan_lm(election_day ~ HESIT, data= matrix1, prior = R2(0.5, what = "mean"))
+lm4 <- stan_lm(election_day ~ NO_GOV_TRUST+ HESIT, data = matrix1, prior = R2(0.5, what = "mean"))
+lm5 <- stan_lm(election_day ~  HESIT + NO_LIKE+ NO_VAX_TRUST+ NO_GOV_TRUST+ OTHERS_NEED+ VOTES_2020+ CHANGE_2020, data = matrix1, prior = R2(0.5, what = "mean"))
+lm6 <- stan_lm(election_day ~  HESIT +VOTES_2020, data = matrix1, prior = R2(0.5, what = "mean"))        
+```
+```{r}
+summary(lm1, digits = 4)
+```
+```{r}
+summary(lm2,digits = 4)
 ```
 
 ```{r}
-lm3 <- lm(VALS3 ~ HESIT, data= matrix1)
-summary(lm3)
-
-ggplot(matrix1, aes(x = HESIT, y = VALS3)) + 
-  geom_point() +
-  stat_smooth(method = "lm", col = "red")
-```
-```{r}
-lm4 <- lm(VALS3 ~ NO_GOV_TRUST+ HESIT, data = matrix1)
-summary(lm4)
-```
-```{r}
-lm6 <- lm(VALS1 ~  HESIT +VOTES_2020, data = matrix1)
-summary(lm6)
-```
-
-
-```{r}
-lm5 <- lm(VALS3 ~  HESIT + NO_LIKE+ NO_VAX_TRUST+ NO_GOV_TRUST+ OTHERS_NEED+ VOTES_2020+ CHANGE_2020, data = matrix1)
-summary(lm5)
+summary(lm3, digits = 4)
 ```
 
 ```{r}
-bayes_lm <- stan_lm (VALS3 ~  HESIT + NO_LIKE+ NO_VAX_TRUST+ NO_GOV_TRUST+ OTHERS_NEED+ VOTES_2020+ CHANGE_2020, data = matrix1, algorithm = "sampling",prior = R2(0.5))
+summary(lm4, digits = 41)
 ```
-```{r}
-#summary(bayes_lm)
-print(bayes_lm)
-```
-```{r}
 
+```{r}
+summary(lm5, digits =4)
 ```
+Model 4
+```{r}
+summary(lm6, digits = 4)
+```
+
+
 

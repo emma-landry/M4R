@@ -376,7 +376,7 @@ vax_combined_data %>%
   theme(legend.title = element_text(hjust = 0.5, size = 14),
         legend.key.width = unit(.4, "in"),
         legend.position="top") +
-  labs(fill = "Hesitancy")
+  labs(fill = "Vaccine Hesitancy")
 
 ggsave("county_hesitancy_map.pdf", height = 5, scale = 1)
 
