@@ -246,9 +246,13 @@ all_medians_df [,3:352]<- lapply(all_medians_df[,3:352],as.numeric)
 
 ```
 
+```{r}
+means1<- all_medians_df[,205]
+```
+
 Jan 4th - Jan 17th
 ```{r}
-means1 <- rowMeans(all_medians_df[,266:279])
+means2 <- rowMeans(all_medians_df[,266:279])
 ```
 
 ```{r}
@@ -258,34 +262,25 @@ matrix1 <- data.frame("Medians"= means1,
                       "Strong_Hes"= hesitancy_df$Strong_hes)
 ```
 
-```{r}
-lm1a <- lm(Medians ~ Trump + Hes, data = matrix1)
-summary(lm1a)
+```{r}&;
+lm1 <- stan_lm(Medians ~ Trump + Hes, data = matrix1, prior = R2(0.5, what = "mean"))
+lm2 <- stan_lm(Medians ~ Trump + Strong_Hes, data = matrix1, prior = R2(0.5, what = "mean"))
+lm3 <- stan_lm(Medians ~ Trump, data = matrix1, prior = R2(0.5, what = "mean"))
+lm4 <- stan_lm (Medians ~ Hes, data = matrix1, prior = R2(0.5, what = "mean"))
+lm5 <- stan_lm (Medians ~ Strong_Hes, data = matrix1, prior = R2(0.5, what = "mean"))
+lm6 <- stan_lm (Medians ~ Trump+ Hes + Strong_Hes , data = matrix1, prior = R2(0.5, what = "mean"))
 ```
 
 ```{r}
-lm1b <- lm(Medians ~ Trump + Strong_Hes, data = matrix1)
-summary(lm1b)
-```
-```{r}
-lm1c <- lm(Medians ~ Trump, data = matrix1)
-summary(lm1c)
-```
-```{r}
-lm1d <- lm (Medians ~ Hes, data = matrix1)
-summary(lm1d)
+round(summary(lm6)[1:8,],4)
 ```
 
-```{r}
-lm1e <- lm (Medians ~ Trump+ Hes + Strong_Hes , data = matrix1)
-summary(lm1e)
-```
+
 
 ```{r}
 trump_coeffs <- c()
 hes_coeffs <- c()
 ```
-
 
 ```{r}
 colnames(all_medians_df)[154]
