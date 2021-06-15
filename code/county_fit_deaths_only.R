@@ -6,6 +6,7 @@ library(readr)
 options(mc.cores = parallel::detectCores())
 options(mc.cores = 4)
 
+#Obtain job details 
 job.index <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 print(job.index)
 job.id <- Sys.getenv("PBS_JOBID")
@@ -24,10 +25,11 @@ long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "color
                 "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington",
                 "west_virginia","wisconsin", "wyoming")
 
-
+#Identify the state being worked with
 this.short <- short_state[job.index]
 this.long <- long_state[job.index]
 
+#Load grouping and deaths data for the given state
 group.file.name<- paste0(this.long, "_groups.rds")
 
 groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
@@ -37,6 +39,7 @@ state_data <- filter(data, state == this.short)
 
 N <- nrow(groups)
 
+#Loop over the N counties, to obtain a model for each
 for (i in (seq (1:N))){
   
   #Obtaining the data
@@ -44,7 +47,7 @@ for (i in (seq (1:N))){
   
   if (length(fips)==1){
     data_sub <- filter(state_data, countyFIPS == fips)
-  }else{
+  }else{ #aggregate the data for all counties in the grouping
     data_sub <- filter(state_data, countyFIPS %in% fips)
     tmp <- aggregate(cbind(cases, deaths) ~ date, data=data_sub, FUN=sum, na.action = NULL)
     data_sub <- data_sub[1:435,]
@@ -53,7 +56,7 @@ for (i in (seq (1:N))){
     n <- nrow (data_sub)
     data_sub$county <- rep(groups$county[i], n)
   }
-  #Doing the models
+  #Checking number of cases is sufficient
   cases_no_NA = data_sub$cases
   cases_no_NA[is.na(cases_no_NA)]=0
   idx <- which(cumsum(cases_no_NA) >= 10)[1]
@@ -62,6 +65,7 @@ for (i in (seq (1:N))){
     stop(paste0("Fewer than 10 cumulative cases in entire epidemic. Not modeling."))
   }
   
+  #Number the weeks for the weekly random walk
   start_date <- data_sub$date[idx] - 7
   data_sub <- filter(data_sub, date >= start_date)
   
@@ -74,10 +78,12 @@ for (i in (seq (1:N))){
   
   args <- list(data=data_sub)
   
+  #Model for latent infections
   inf <- epiinf( gen = EuropeCovid$si,
                  pop_adjust = FALSE,
                  susceptibles = pop) #check prior_tau
   
+  #Model for observations (deaths) vector
   deaths <- epiobs(
     #formula = deaths(county, date) ~ 1,
     formula = deaths ~ 1,
@@ -94,6 +100,7 @@ for (i in (seq (1:N))){
     formula = R(county, date) ~ rw(time=week)
   )
   
+  #Define the HMC parameters
   args$algorithm <- "sampling"
   args$init_run <- TRUE
   args$inf <- inf
@@ -103,7 +110,7 @@ for (i in (seq (1:N))){
   
   filename <- paste0(gsub("\\s", "_", groups$county[i]), "_", this.short,"_",job.id,".rds")
   
-  fit <- do.call("epim", args)
+  fit <- do.call("epim", args) #fit the epidemiological model
   
   res <- list(
     fit = fit,
@@ -117,9 +124,10 @@ for (i in (seq (1:N))){
   parent <- getwd()
   setwd(wd)
   
-  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/run7/", filename))
+  #Saving the model to the Research Data Store
+  saveRDS(res, file =  paste0(parent,"/Outputs/epidemia_fits/run7/", filename))  
   
-  
+  #SAving posterior medians to the Research Data Store 
   rt <- posterior_rt(res$fit)
   draws <- rt$draws
   rt_medians <- apply(draws,2, median)

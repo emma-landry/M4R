@@ -208,17 +208,14 @@ california_groups <- unique(subset(california_copy, select= -c(neighbor_county, 
 ```
 
 ```{r}
+#First data-preprocessing step
 grouping_state <- function(cap,short){
   
-  state_pop <- subset(pop_2019, state == cap)
-  adj_state <- subset (adj, state == short)
+  state_pop <- subset(pop_2019, state == cap) #select population data using capitalized full state name
+  adj_state <- subset (adj, state == short) #select adjency using two letter state code
 
-  adj_state <- subset(adj_state, county_fips != neighbor_fips)
-  adj_state <- subset(adj_state, neighbor_state == short)
-  
-  counties1 <- str_sort(state_pop$county)
-  counties2 <- str_sort(unique(adj_state$county))
-  comparison <- sum(counties1==counties2)/ length(counties1)
+  adj_state <- subset(adj_state, county_fips != neighbor_fips) #remove each county from its own neighbors
+  adj_state <- subset(adj_state, neighbor_state == short) #remove adjacent counties from diff state
   
   return(list(state_pop, adj_state))
 }
@@ -226,10 +223,13 @@ grouping_state <- function(cap,short){
 ```
 
 ```{r}
+#Combines the data into one data frame
 grouping_step2 <- function(cap, short){
+  #Pre-process data using grouping_state
   state_pop <- grouping_state(cap, short)[[1]]
   adj_state <- grouping_state(cap, short)[[2]]
   
+  #join the two data frames and clean it
   state_df <-left_join(adj_state, state_pop, by = "county")
   state_df <- data.frame(state_df$county, state_df$county_fips, state_df$population, state_df$neighbor_county, state_df$neighbor_fips)
   colnames(state_df) <- c("county", "county_fips", "population", "neighbor_county", "neighbor_fips")
@@ -246,18 +246,21 @@ grouping_step2 <- function(cap, short){
 ```
 
 ```{r}
+#Obtain the groupings
 do_groups <- function(cap,short, tol){
+  #Obtain fully prepared data frame
   state_df <- grouping_step2(cap, short)
   
   state_df$population <- as.numeric(state_df$population)
-  min_pop <- min(state_df$population)
-  min_c <- state_df[which.min(state_df$population),]$county
+  min_pop <- min(state_df$population) #lowest population
+  min_c <- state_df[which.min(state_df$population),]$county #index of county with lowest population
   i =1
   
+  #iterate as long as some groupings have population less than tol
   while (min_pop <= tol){
     i = i+1
-    min_c <- state_df[which.min(state_df$population),]$county
-    min_fips <-state_df[which.min(state_df$population),]$county_fips
+    min_c <- state_df[which.min(state_df$population),]$county #less populated county
+    min_fips <-state_df[which.min(state_df$population),]$county_fips #fips of less populated county
     
     #Choose the neighbour with lowest population to merge
     tmp <- subset(state_df, county == min_c)

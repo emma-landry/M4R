@@ -1,0 +1,817 @@
+---
+title: "Regression (County)"
+author: "Emma Landry"
+date: "4/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(epidemia)
+library(dplyr)
+library(here)
+library(readr)
+library(readxl)
+library(rstan)
+library(ggplot2)
+library(GGally)
+library(reshape2) #for melt
+library(urbnmapr)
+library(tidyverse)
+library(rstanarm)
+library(RColorBrewer)
+```
+
+```{r}
+short_state <- c("AL", "AK","AZ", "AR", "CA","CO","CT","DE","FL","GA","ID","IL","IN","IA","KS","KY",
+                 "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
+                 "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY") 
+
+long_state <- c("alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut",
+                "delaware", "florida", "georgia", "idaho", "illinois","indiana","iowa", "kansas",
+                "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan",
+                "minnesota", "mississippi", "missouri","montana", "nebraska", "nevada", "new_hampshire",
+                "new_jersey", "new_mexico", "new_york", "north_carolina", "north_dakota", "ohio",
+                "oklahoma", "oregon", "pennsylvania", "rhode_island", "south_carolina",
+                "south_dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington",
+                "west_virginia","wisconsin", "wyoming")
+```
+
+```{r}
+jobid <- "3572195"
+```
+
+```{r}
+epifit <- readRDS("/Volumes/evl17/home/Msc/Outputs/epidemia_fits/run6/Baldwin_County_AL_3572195[1].pbs.rds")
+rt <- posterior_rt(epifit$fit)
+times<- rt$time
+times <- tail(times, 350)
+```
+
+```{r}
+all_medians_df <- data.frame(matrix(ncol = 350, nrow = 795))
+colnames(all_medians_df)<- times
+all_medians_df$state <- NA
+all_medians_df$county <- NA
+
+#move these columns to the front
+all_medians_df <- all_medians_df %>%
+  select(county, everything())
+all_medians_df <- all_medians_df %>%
+  select(state, everything())
+```
+
+
+```{r}
+count <- 1
+for (i in seq(1:49)){
+  this.short <- short_state[i]
+  this.long <- long_state[i]
+  print(this.long)
+  
+  group.file.name<- paste0(this.long, "_groups.rds")
+  groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
+  N <- nrow(groups)
+  for (j in seq(1:N)){
+    print(count)
+    filename <- paste0(gsub("\\s", "_", groups$county[j]), "_", this.short,"_",jobid,"[",i,"].pbs","_medians.rds")
+    path <- paste0("/Volumes/evl17/home/Msc/Outputs/rt_medians/run7/", filename)
+    medians <- read.csv(path)
+    medians_end <- tail(medians, 350)
+    vec <- c(this.long, groups$county[j], as.numeric(medians_end$x))
+    all_medians_df[count,] <- vec
+    count <- count +1
+  }
+}
+```
+
+
+```{r}
+all_medians_df <- subset(all_medians_df, state != "alaska")
+```
+
+
+```{r}
+new_pres_data <- read.csv(here("data", "election", "2020_US_County_Level_Presidential_Results.csv"))
+new_pres_data <- subset(new_pres_data, state_name != "Hawaii" & state_name != "District of Columbia")
+```
+
+```{r}
+voting_df <- data.frame(matrix(ncol = 3, nrow = 796))
+colnames(voting_df) <- c("state", "county", "Trump")
+```
+
+
+```{r}
+count <- 1
+for (i in seq(1:49)){
+  this.short <- short_state[i]
+  this.long <- long_state[i]
+  print(this.long)
+  
+  group.file.name<- paste0(this.long, "_groups.rds")
+  groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
+  N <- nrow(groups)
+  for (j in seq(1:N)){
+    print(count)
+    if(i ==2 ) {
+      break}
+    
+    fips <- unlist(groups$county_fips[j])
+    if (length(fips)==1){
+    rows <- filter(new_pres_data, county_fips == fips)
+    voting_df[count,]$state <- this.long
+    voting_df[count,]$county<- groups$county[j]
+    voting_df[count,]$Trump <- rows$per_gop
+    
+  }else{
+    rows <- filter(new_pres_data, county_fips %in% fips)
+    
+    votes <- sum(rows$votes_gop)/ sum(rows$total_votes)
+    voting_df[count,]$state <- this.long
+    voting_df[count,]$county<- groups$county[j]
+    voting_df[count,]$Trump <- votes
+  }
+  
+    count <- count + 1
+  }
+}
+```
+
+```{r}
+vax <- read_excel(here::here("data", "vaccination_hesitancy", "Predicted-Vaccine-Hesitancy-by-State-PUMA-County.xlsx"), sheet = "county_hesitancy_estimates")
+```
+
+```{r}
+index <- vax$`FIPS Code`== 46113
+vax$`FIPS Code`[index]<- 46102
+
+vax <- subset(vax, `FIPS Code` != 51515) #Bedford city is part of Bedford
+```
+
+Note this dataset not in repo because too big, same source as other pop, just this one divides age groups
+```{r}
+pop <- read.csv("/Users/emmalandry/Documents/Imperial/Year 4/M4R/vaccination/cc-est2019-alldata.csv")
+```
+
+```{r}
+pop <- subset(pop, YEAR == "12")
+pop_df <- subset(pop, AGEGRP != "0" & AGEGRP != "1" & AGEGRP != "2"& AGEGRP != "3"& AGEGRP != "4")  # remove less than 20
+pop_df <- aggregate(pop_df[8:80], by = pop_df[2:5] ,FUN = sum) #sum up
+
+pop_df<- pop_df[
+  with(pop_df, order(STATE, COUNTY)),
+]
+#reorder back to norm
+
+pop_df[,5:77] <- pop_df[,5:77] + floor(subset(pop,  AGEGRP == "4")[,8:80]/2) #add hakf of the 15-19 group
+```
+
+```{r}
+pop_df <- pop_df[,1:5]
+```
+
+```{r}
+pop_df <-
+    pop_df%>%
+    mutate(STATE = str_pad(STATE, 2, side = 'left', pad = '0'))
+pop_df <-
+    pop_df%>%
+    mutate(COUNTY = str_pad(COUNTY, 3, side = 'left', pad = '0'))
+pop_df <- within(pop_df, FIPS <- paste(STATE,COUNTY,sep=''))
+```
+
+```{r}
+pop_df <- pop_df %>%
+  select(FIPS, everything())
+pop_df<- subset(pop_df, STNAME != "District of Columbia" & STNAME != "Hawaii")
+```
+
+```{r}
+hesitancy_df <-data.frame(matrix(ncol = 4, nrow = 796))
+colnames(hesitancy_df) <- c("state", "county", "Hes", "Strong_hes")
+```
+
+```{r}
+count <- 1
+for (i in seq(1:49)){
+  this.short <- short_state[i]
+  this.long <- long_state[i]
+  print(this.long)
+  
+  group.file.name<- paste0(this.long, "_groups.rds")
+  groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
+  N <- nrow(groups)
+  for (j in seq(1:N)){
+    print(count)
+    if(i ==2 ) {
+      break}
+    
+    fips <- unlist(groups$county_fips[j])
+    if (length(fips)==1){
+    rows <- filter(vax, as.integer(`FIPS Code`) == fips)
+    hesitancy_df$state[count] <- this.long
+    hesitancy_df$county[count]<- groups$county[j]
+    hesitancy_df$Hes[count] <- rows$`% Estimated Hesitant - March 3 - March 15, 2021`
+    hesitancy_df$Strong_hes [count] <- rows$`% Estimated Strongly Hesitant - March 3 - March 15, 2021`
+    
+  }else{
+    rows <- filter(vax, as.integer(`FIPS Code`) %in% fips)
+    pop_rows <- filter(pop_df, as.integer(FIPS) %in% fips)
+    h1 <- pop_rows$TOT_POP%*%rows$`% Estimated Hesitant - March 3 - March 15, 2021`/sum(pop_rows$TOT_POP)
+    h2 <- pop_rows$TOT_POP%*%rows$`% Estimated Strongly Hesitant - March 3 - March 15, 2021` /sum(pop_rows$TOT_POP)
+    hesitancy_df$state[count] <- this.long
+    hesitancy_df$county[count]<- groups$county[j]
+    hesitancy_df$Hes[count] <- h1
+    hesitancy_df$Strong_hes [count]<- h2
+    
+  }
+  
+    count <- count + 1
+  }
+}
+```
+
+```{r}
+times
+```
+
+```{r}
+colnames(all_medians_df)[266]
+colnames(all_medians_df)[279]
+all_medians_df [,3:352]<- lapply(all_medians_df[,3:352],as.numeric)
+
+```
+
+```{r}
+means1<- all_medians_df[,205]
+```
+
+Jan 4th - Jan 17th
+```{r}
+means2 <- rowMeans(all_medians_df[,266:279])
+```
+
+```{r}
+matrix1 <- data.frame("Medians"= means1,
+                      "VOTES_2020"= voting_df$Trump*100,
+                      "HES" = hesitancy_df$Hes*100,
+                      "STRONG_HES"= hesitancy_df$Strong_hes*100)
+```
+
+```{r}
+lm1 <- stan_lm(Medians ~ VOTES_2020 + HES, data = matrix1, prior = R2(0.5, what = "mean"))
+lm2 <- stan_lm(Medians ~ VOTES_2020+ STRONG_HES, data = matrix1, prior = R2(0.5, what = "mean"))
+lm3 <- stan_lm(Medians ~ VOTES_2020, data = matrix1, prior = R2(0.5, what = "mean"))
+lm4 <- stan_lm (Medians ~ HES, data = matrix1, prior = R2(0.5, what = "mean"))
+lm5 <- stan_lm (Medians ~ STRONG_HES, data = matrix1, prior = R2(0.5, what = "mean"))
+lm6 <- stan_lm (Medians ~ VOTES_2020+ HES + STRONG_HES , data = matrix1, prior = R2(0.5, what = "mean"))
+```
+
+```{r}
+cor_matrix_county <- cor(matrix1[,2:4])
+melted_cor_county <- melt(cor_matrix_county)
+
+#pdf("correlation.pdf", width = 10, height= 10, pointsize = 40)
+ggplot(data = melted_cor_county, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()+
+  scale_fill_gradient2(high = "#F8766D", low = "#00BFC4", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab",
+                       name="Pearson\nCorrelation") +
+  xlab("")+
+  ylab("")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 270, vjust = 0.5, hjust=0))
+ggsave("pearsonmatcounty.pdf", height = 5, width = 6 )
+```
+
+
+```{r}
+round(summary(lm6)[1:8,],4)
+```
+
+
+
+```{r}
+trump_coeffs <- c()
+hes_coeffs <- c()
+```
+
+```{r}
+colnames(all_medians_df)[154]
+colnames(all_medians_df)[167]
+
+ind1 <-49
+ind2 <- ind1+13
+
+trump_coeffs <- c()
+trump_10 <- c()
+trump_90 <- c()
+
+hes_coeffs <- c()
+hes_10 <- c()
+hes_90 <- c()
+
+r2_means <- c()
+
+for (i in seq(1:16)){
+  means <- rowMeans(all_medians_df[,ind1:ind2])
+  matrix <- data.frame("Medians"= means,
+                      "Trump"= voting_df$Trump,
+                      "Hes" = hesitancy_df$Hes,
+                      "Strong_Hes"= hesitancy_df$Strong_hes)
+ 
+  model <- stan_lm(Medians ~ Trump + Hes, data= matrix,prior = R2(0.5, what = "mean"))
+  model_summary<- summary(model)
+   
+  trump_coeffs <- c(trump_coeffs, model_summary[2,5])
+  trump_10 <- c(trump_10, model_summary[2,4])
+  trump_90 <- c(trump_90, model_summary[2,6])
+  
+  hes_coeffs <- c(hes_coeffs, model_summary[3,5])
+  hes_10 <- c(hes_10, model_summary[3,4])
+  hes_90 <- c(hes_90, model_summary[3,6])
+  
+  r2_means <- c(r2_means, model_summary[6,5])
+  
+  ind1<- ind2+1
+  ind2 <- ind1+13
+}
+
+```
+
+```{r}
+ind1 <-2
+ind2 <- ind1+13
+for (i in seq(1:14)){
+  ind1<- ind2+1
+  ind2 <- ind1+13
+}
+all_medians_df[,49:13]
+med_df_cut[,ind1:ind2]
+```
+
+
+
+```{r}
+time_varying_county <- data.frame("Week"= seq(1:16), "Hesitancy"= hes_coeffs, "Trump"= trump_coeffs,
+                                 "Hesitancy10"= hes_10, "Hesitancy90"= hes_90,
+                                 "Trump10"= trump_10, "Trump90"= trump_90)
+```
+
+
+```{r}
+ggplot(data=time_varying_county, aes (x= Week))+
+  geom_point(aes( y= Hesitancy, color = "Hesitancy"), size = 2)+
+  geom_line(aes( y= Hesitancy), color = "#F8766D", size = 0.5)+
+  geom_ribbon(aes(ymin = Hesitancy10, ymax = Hesitancy90), fill = "#F8766D", alpha = 0.2)+
+  geom_point(aes(x= Week, y = Trump*5, color = "Trump Support"), size = 2)+
+  geom_line(aes(x= Week, y = Trump*5), color = "#00BFC4", size = 0.5)+
+  geom_ribbon(aes(ymin = Trump10*5, ymax = Trump90*5), fill = "#00BFC4", alpha = 0.2)+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black")+
+  scale_y_continuous(sec.axis = sec_axis( trans=~./5, name="Trump Support"))+
+  scale_color_manual(values = c("Hesitancy"= "#F8766D", "Trump Support"="#00BFC4"))+
+  labs(color = "",
+       x = "2-Week Period")+
+  theme_bw()+
+  theme(
+    legend.position = c(.1, .15),
+    legend.background = element_rect(fill = "transparent"),
+    legend.key = element_rect(fill = "transparent", colour = "transparent"))+
+  scale_x_continuous(breaks=seq(1,16,by= 2),limits = c(1,16), expand = c(0, 0))
+ggsave("county_time_varying_coefs.pdf", height = 5, scale =1)
+```
+
+```{r}
+summary(lm3)
+summary(lm3)[2,5]
+```
+
+
+```{r}
+int1<- summary(lm3)[1,5]
+int10perc <- summary(lm3)[1,4]
+int90perc <- summary(lm3)[1,6]
+
+pred1 <- summary(lm3)[2,5]
+pred10perc <- summary(lm3)[2,4]
+pred90perc <- summary(lm3)[2,6]
+```
+
+```{r}
+x<- seq(5,90, by = 0.1)
+y<- int1+ x*pred1
+y10perc <- int10perc+ x*pred10perc
+y90perc <- int90perc+x*pred90perc
+```
+
+
+```{r}
+trend_line_nov3<- data.frame(matrix(nrow=851))
+trend_line_nov3$x <- x
+trend_line_nov3$y<- y
+trend_line_nov3$y10perc <- y10perc
+trend_line_nov3$y90perc<- y90perc
+trend_line_nov3<- trend_line_nov3[,-1]
+```
+
+```{r}
+ggplot()+
+  geom_point(data=matrix1, aes(x=VOTES_2020,y=Medians), size = 0.5)+
+  geom_line(data = trend_line_nov3, aes (x=x, y =y), color ="#F8766D" )+
+  geom_ribbon(data = trend_line_nov3, aes(x=x, ymin = y10perc, ymax = y90perc), fill = "#F8766D", alpha = 0.2)+
+  labs(x = "Trump Support (%)",
+       y = expression(R[t]))+
+  scale_x_continuous(limits = c(5,90), expand = c(0, 0)) +
+  ggtitle("November 3rd, 2020")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, size =15))
+  
+ggsave("trumpreg_nov3_county.pdf", height = 5, scale =1)
+```
+
+```{r}
+int2<- summary(lm4)[1,5]
+int10perc2 <- summary(lm4)[1,4]
+int90perc2 <- summary(lm4)[1,6]
+
+pred2 <- summary(lm4)[2,5]
+pred10perc2 <- summary(lm4)[2,4]
+pred90perc2 <- summary(lm4)[2,6]
+```
+
+```{r}
+x2<- seq(5,35, by = 0.1)
+y2<- int2+ x2*pred2
+y10perc2 <- int10perc2+ x2*pred10perc2
+y90perc2 <- int90perc2+x2*pred90perc2
+```
+
+
+```{r}
+trend_line_nov3_2<- data.frame(matrix(nrow=301))
+trend_line_nov3_2$x <- x2
+trend_line_nov3_2$y<- y2
+trend_line_nov3_2$y10perc <- y10perc2
+trend_line_nov3_2$y90perc<- y90perc2
+trend_line_nov3_2<- trend_line_nov3_2[,-1]
+```
+
+```{r}
+ggplot()+
+  geom_point(data= matrix1, aes(x=HES,y=Medians), size = 0.5)+
+  geom_line(data = trend_line_nov3_2, aes (x=x, y =y), color ="#F8766D" )+
+  geom_ribbon(data = trend_line_nov3_2, aes(x=x, ymin = y10perc, ymax = y90perc), fill = "#F8766D", alpha = 0.2)+
+  labs(x = "Vaccine Hesitancy (%)",
+       y = expression(R[t]))+
+  scale_x_continuous(limits = c(5,35), expand = c(0, 0)) +
+  ggtitle("November 3rd, 2020")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, size =15))
+ggsave("hesitreg_nov3_county.pdf", height = 5, scale =1)
+```
+
+
+```{r}
+means2<- all_medians_df[,168]
+matrix2 <- data.frame("Medians"= means2,
+                      "VOTES_2020"= voting_df$Trump*100,
+                      "HES" = hesitancy_df$Hes*100,
+                      "STRONG_HES"= hesitancy_df$Strong_hes*100)
+lm1_2 <- stan_lm(Medians ~ VOTES_2020, data = matrix2, prior = R2(0.5, what = "mean"))
+lm2_2 <- stan_lm (Medians ~ HES, data = matrix2, prior = R2(0.5, what = "mean"))
+```
+```{r}
+int1<- summary(lm1_2)[1,5]
+int10perc <- summary(lm1_2)[1,4]
+int90perc <- summary(lm1_2)[1,6]
+
+pred1 <- summary(lm1_2)[2,5]
+pred10perc <- summary(lm1_2)[2,4]
+pred90perc <- summary(lm1_2)[2,6]
+```
+
+```{r}
+x<- seq(5,90, by = 0.1)
+y<- int1+ x*pred1
+y10perc <- int10perc+ x*pred10perc
+y90perc <- int90perc+x*pred90perc
+```
+
+
+```{r}
+trend_line_sept28<- data.frame(matrix(nrow=851))
+trend_line_sept28$x <- x
+trend_line_sept28$y<- y
+trend_line_sept28$y10perc <- y10perc
+trend_line_sept28$y90perc<- y90perc
+trend_line_sept28<- trend_line_sept28[,-1]
+```
+
+```{r}
+ggplot()+
+  geom_point(data=matrix2, aes(x=VOTES_2020,y=Medians), size = 0.5)+
+  geom_line(data = trend_line_sept28, aes (x=x, y =y), color ="#F8766D" )+
+  geom_ribbon(data = trend_line_sept28, aes(x=x, ymin = y10perc, ymax = y90perc), fill = "#F8766D", alpha = 0.2)+
+  labs(x = "Trump Support (%)",
+       y = expression(R[t]))+
+  scale_x_continuous(limits = c(5,90), expand = c(0, 0)) +
+  ggtitle("September 28th, 2020")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, size =15))
+  
+ggsave("trumpreg_sept28_county.pdf", height = 5, scale =1)
+```
+
+```{r}
+int2<- summary(lm2_2)[1,5]
+int10perc2 <- summary(lm2_2)[1,4]
+int90perc2 <- summary(lm2_2)[1,6]
+
+pred2 <- summary(lm2_2)[2,5]
+pred10perc2 <- summary(lm2_2)[2,4]
+pred90perc2 <- summary(lm2_2)[2,6]
+```
+
+```{r}
+x2<- seq(5,35, by = 0.1)
+y2<- int2+ x2*pred2
+y10perc2 <- int10perc2+ x2*pred10perc2
+y90perc2 <- int90perc2+x2*pred90perc2
+```
+
+
+```{r}
+trend_line_sept28_2<- data.frame(matrix(nrow=301))
+trend_line_sept28_2$x <- x2
+trend_line_sept28_2$y<- y2
+trend_line_sept28_2$y10perc <- y10perc2
+trend_line_sept28_2$y90perc<- y90perc2
+trend_line_sept28_2<- trend_line_sept28_2[,-1]
+```
+
+```{r}
+ggplot()+
+  geom_point(data= matrix2, aes(x=HES,y=Medians), size = 0.5)+
+  geom_line(data = trend_line_sept28_2, aes (x=x, y =y), color ="#F8766D" )+
+  geom_ribbon(data = trend_line_sept28_2, aes(x=x, ymin = y10perc, ymax = y90perc), fill = "#F8766D", alpha = 0.2)+
+  labs(x = "Vaccine Hesitancy (%)",
+       y = expression(R[t]))+
+  scale_x_continuous(limits = c(5,35), expand = c(0, 0)) +
+  ggtitle("September 28th, 2020")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, size =15))
+ggsave("hesitreg_sept28_county.pdf", height = 5, scale =1)
+```
+
+```{r}
+means3<- all_medians_df[,247]
+matrix3 <- data.frame("Medians"= means3,
+                      "VOTES_2020"= voting_df$Trump*100,
+                      "HES" = hesitancy_df$Hes*100,
+                      "STRONG_HES"= hesitancy_df$Strong_hes*100)
+lm1_3 <- stan_lm(Medians ~ VOTES_2020, data = matrix3, prior = R2(0.5, what = "mean"))
+lm2_3 <- stan_lm (Medians ~ HES, data = matrix3, prior = R2(0.5, what = "mean"))
+```
+
+```{r}
+int1<- summary(lm1_3)[1,5]
+int10perc <- summary(lm1_3)[1,4]
+int90perc <- summary(lm1_3)[1,6]
+
+pred1 <- summary(lm1_3)[2,5]
+pred10perc <- summary(lm1_3)[2,4]
+pred90perc <- summary(lm1_3)[2,6]
+```
+
+```{r}
+x<- seq(5,90, by = 0.1)
+y<- int1+ x*pred1
+y10perc <- int10perc+ x*pred10perc
+y90perc <- int90perc+x*pred90perc
+```
+
+
+```{r}
+trend_line_dec16<- data.frame(matrix(nrow=851))
+trend_line_dec16$x <- x
+trend_line_dec16$y<- y
+trend_line_dec16$y10perc <- y10perc
+trend_line_dec16$y90perc<- y90perc
+trend_line_dec16<- trend_line_dec16[,-1]
+```
+
+```{r}
+ggplot()+
+  geom_point(data=matrix3, aes(x=VOTES_2020,y=Medians), size = 0.5)+
+  geom_line(data = trend_line_dec16, aes (x=x, y =y), color ="#F8766D" )+
+  geom_ribbon(data = trend_line_dec16, aes(x=x, ymin = y10perc, ymax = y90perc), fill = "#F8766D", alpha = 0.2)+
+  labs(x = "Trump Support (%)",
+       y = expression(R[t]))+
+  scale_x_continuous(limits = c(5,90), expand = c(0, 0)) +
+  ggtitle("December 16th, 2020")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, size =15))
+  
+ggsave("trumpreg_dec16_county.pdf", height = 5, scale =1)
+```
+
+```{r}
+int2<- summary(lm2_3)[1,5]
+int10perc2 <- summary(lm2_3)[1,4]
+int90perc2 <- summary(lm2_3)[1,6]
+
+pred2 <- summary(lm2_3)[2,5]
+pred10perc2 <- summary(lm2_3)[2,4]
+pred90perc2 <- summary(lm2_3)[2,6]
+```
+
+```{r}
+x2<- seq(5,35, by = 0.1)
+y2<- int2+ x2*pred2
+y10perc2 <- int10perc2+ x2*pred10perc2
+y90perc2 <- int90perc2+x2*pred90perc2
+```
+
+
+```{r}
+trend_line_dec16_2<- data.frame(matrix(nrow=301))
+trend_line_dec16_2$x <- x2
+trend_line_dec16_2$y<- y2
+trend_line_dec16_2$y10perc <- y10perc2
+trend_line_dec16_2$y90perc<- y90perc2
+trend_line_dec16_2<- trend_line_dec16_2[,-1]
+```
+
+```{r}
+ggplot()+
+  geom_point(data= matrix3, aes(x=HES,y=Medians), size = 0.5)+
+  geom_line(data = trend_line_dec16_2, aes (x=x, y =y), color ="#F8766D" )+
+  geom_ribbon(data = trend_line_dec16_2, aes(x=x, ymin = y10perc, ymax = y90perc), fill = "#F8766D", alpha = 0.2)+
+  labs(x = "Vaccine Hesitancy (%)",
+       y = expression(R[t]))+
+  scale_x_continuous(limits = c(5,35), expand = c(0, 0)) +
+  ggtitle("December 16th, 2020")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5, size =15))
+ggsave("hesitreg_dec16_county.pdf", height = 5, scale =1)
+```
+
+
+```{r}
+dat_counties <- urbnmapr::counties
+dat_counties <- subset(dat_counties, state_name != "Alaska" & state_name != "Hawaii")
+dat_counties$county_fips <- as.numeric(as.character(dat_counties$county_fips))
+
+pres_data <- new_pres_data
+pres_data$county_fips <- as.numeric(as.character(pres_data$county_fips))
+pres_combined_data <- left_join(dat_counties, new_pres_data, by = "county_fips")
+
+pres_combined_data %>%
+  ggplot(aes(long, lat, group = group, fill = per_gop)) +
+  geom_polygon(color = NA) +
+ scale_fill_gradient2(labels = scales::percent, guide = guide_colourbar(direction = "horizontal",title.position = "top"),low = "dodgerblue4", mid = "white", high = "red", midpoint = 0.5) +
+  geom_polygon(data = subset(states, state_name!= "Alaska" & state_name != "Hawaii"), mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme_void()+
+  theme(legend.title = element_text(hjust = 0.5, size = 14),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") +
+  labs(fill = "Percentage Votes Trump")
+
+ggsave("county_votes_map.pdf", height = 5, scale = 1)
+
+```
+
+
+```{r}
+dat_counties <- urbnmapr::counties
+dat_counties <- subset(dat_counties, state_name != "Alaska" & state_name != "Hawaii")
+dat_counties$county_fips <- as.numeric(as.character(dat_counties$county_fips))
+
+vax_data <- vax
+names <- colnames(vax_data)
+names[1]<- "county_fips"
+names[3]<- "hesitant"
+names[4]<- "strong_hesitant"
+
+colnames(vax_data)<- names
+vax_data$county_fips <- as.numeric(as.character(vax_data$county_fips))
+vax_combined_data <- left_join(dat_counties, vax_data, by = "county_fips")
+
+vax_combined_data %>%
+  ggplot(aes(long, lat, group = group, fill = hesitant)) +
+  geom_polygon(color = NA) +
+ scale_fill_gradient2(labels = scales::percent, guide = guide_colourbar(direction = "horizontal",title.position = "top"),low = "dodgerblue4", mid = "white", high = "red", midpoint = 0.15) +
+  geom_polygon(data = subset(states, state_name!= "Alaska" & state_name != "Hawaii"), mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme_void()+
+  theme(legend.title = element_text(hjust = 0.5, size = 14),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") +
+  labs(fill = "Vaccine Hesitancy")
+
+ggsave("county_hesitancy_map.pdf", height = 5, scale = 1)
+
+```
+```{r}
+rt_election_day<- all_medians_df[,205]
+```
+
+```{r}
+degrouped_df_rt <- data.frame(matrix(ncol = 3, nrow = 3108))
+colnames(degrouped_df_rt)<- c("county_fips", "Rt", "grouping")
+```
+
+
+```{r}
+count_long <- 1
+count_short <- 1
+for (i in seq(1:49)){
+  this.short <- short_state[i]
+  this.long <- long_state[i]
+  print(this.long)
+  
+  group.file.name<- paste0(this.long, "_groups.rds")
+  groups <- readRDS(here::here("data", "grouped_counties", group.file.name))
+  N <- nrow(groups)
+  for (j in seq(1:N)){
+    if(i ==2 ) {
+      break}
+    
+    fips <- unlist(groups$county_fips[j])
+    n <- length(fips)
+    
+    if (n==1){
+    degrouped_df_rt[count_long, 1] <- fips
+    degrouped_df_rt[count_long, 2] <-  all_medians_df[count_short,205]
+    degrouped_df_rt[count_long, 3] <-  count_short
+    count_long<- count_long+1
+    
+  }else{
+    for (m in seq(1:n)){
+      degrouped_df_rt[count_long, 1] <- fips[m]
+      degrouped_df_rt[count_long, 2] <-  all_medians_df[count_short,205]
+      degrouped_df_rt[count_long, 3] <-  count_short
+      count_long<- count_long+1
+    }
+    
+  }
+  count_short<- count_short+1
+  }
+}
+
+```
+```{r}
+dat_counties <- urbnmapr::counties
+dat_counties <- subset(dat_counties, state_name != "Alaska" & state_name != "Hawaii")
+dat_counties$county_fips <- as.numeric(as.character(dat_counties$county_fips))
+
+rt_elec <- degrouped_df_rt
+rt_elec$county_fips <- as.numeric(as.character(rt_elec$county_fips))
+rt_combined_data <- left_join(dat_counties, rt_elec, by = "county_fips")
+
+rt_combined_data %>%
+  ggplot(aes(long, lat, group = group, fill = Rt)) +
+  geom_polygon(color = NA) +
+ scale_fill_gradientn(guide = guide_colourbar(direction = "horizontal",title.position = "top", nbin = 10000),colours = c( "lightskyblue","dodgerblue4","lightpink", "firebrick3"), 
+                         values = scales::rescale(c(0.25, 1 - 0.00000000001, 1, 2.5))) +
+  geom_polygon(data = subset(states, state_name!= "Alaska" & state_name != "Hawaii"), mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme_void()+
+  theme(legend.title = element_text(hjust = 0.5, size = 14),
+        legend.key.width = unit(.4, "in"),
+        legend.position="top") +
+  labs(fill = expression(R[t]))
+ggsave("county_rt_map.pdf", height = 5, scale = 1)
+```
+
+
+
+
+```{r}
+set.seed(1234)
+mycolors <- sample(colorRampPalette(brewer.pal(8, "Accent"))(796))
+
+
+ggplot(rt_combined_data, mapping = aes(long, lat, group = group, fill = as.factor(grouping))) +
+  geom_polygon(color = NA) +
+  geom_polygon(data = subset(states, state_name!= "Alaska" & state_name != "Hawaii"), mapping = aes(long, lat, group = group),
+               fill = NA, color = "#ffffff") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  theme_void()+
+  theme(legend.title = element_text(),
+        legend.key.width = unit(.5, "in"),
+        plot.title = element_text(hjust = 0.5, size = 18)) +
+  guides(fill= FALSE)+
+  scale_fill_manual(values = mycolors)
+ggsave("national_gp.pdf", height = 5, scale = 1)
+```
+
+
